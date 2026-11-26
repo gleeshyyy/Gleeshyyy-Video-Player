@@ -233,7 +233,8 @@ class MainActivity : AppCompatActivity() {
                     if (active) setTypeface(typeface, android.graphics.Typeface.BOLD)
                 })
                 setOnClickListener {
-                    if (selectedTab != tab || selectedFolder != null) {
+                    if (selectedTab != tab || selectedFolder != null || searchPage) {
+                        searchPage = false
                         selectedTab = tab
                         selectedFolder = null
                         val parent = bar.parent as? LinearLayout
