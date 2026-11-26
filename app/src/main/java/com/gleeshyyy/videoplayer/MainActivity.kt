@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.Cursor
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
@@ -43,6 +44,8 @@ data class VideoItem(
 class MainActivity : AppCompatActivity() {
     private lateinit var content: LinearLayout
     private lateinit var libraryScroll: ScrollView
+    private lateinit var libraryBackground: ImageView
+    private val palette get() = ThemeManager.palette(this)
     private var allVideos: List<VideoItem> = emptyList()
     private var selectedFolder: String? = null
     private var sortMode = 0
@@ -126,17 +129,37 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showVideoLibrary() {
+        val frame = FrameLayout(this)
+        libraryBackground = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            setBackgroundColor(palette.background)
+        }
+        frame.addView(libraryBackground, FrameLayout.LayoutParams(-1, -1))
         libraryScroll = ScrollView(this).apply {
-            setBackgroundColor(0xFF080D12.toInt())
+            setBackgroundColor(Color.TRANSPARENT)
             isFillViewport = true
         }
+        frame.addView(libraryScroll, FrameLayout.LayoutParams(-1, -1))
         content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(22), dp(20), dp(30))
         }
         libraryScroll.addView(content)
-        setContentView(libraryScroll)
+        setContentView(frame)
+        applyLibraryTheme()
         if (hasVideoPermission()) loadLibrary() else requestVideoPermission()
+    }
+
+    private fun applyLibraryTheme() {
+        val p = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+        val picture = if (p.getString("theme_mode", "dark") == "picture") ThemeManager.loadPicture(this, p.getString("theme_picture", null)) else null
+        libraryBackground.setImageBitmap(picture)
+        val transparency = p.getInt("theme_transparency", 35).coerceIn(0, 100)
+        libraryBackground.alpha = if (picture == null) 1f else (1f - transparency / 100f * .55f).coerceIn(.35f, 1f)
+        ThemeManager.blur(libraryBackground, p.getInt("theme_blur", 0).toFloat())
+        libraryScroll.setBackgroundColor(if (picture == null) palette.background else Color.TRANSPARENT)
+        window.statusBarColor = palette.background
+        window.navigationBarColor = palette.background
     }
 
     private fun requiredPermissions(): Array<String> = when {
@@ -164,7 +187,7 @@ class MainActivity : AppCompatActivity() {
     private fun loadLibrary() {
         val generation = ++libraryLoadGeneration
         content.removeAllViews()
-        content.addView(text("Scanning your videos…", 15f, 0xFF8997A1.toInt()).apply {
+        content.addView(text("Scanning your videos…", 15f, palette.muted).apply {
             setPadding(0, dp(28), 0, dp(12))
         })
         libraryExecutor.execute {
@@ -239,7 +262,7 @@ class MainActivity : AppCompatActivity() {
         }
         val brand = TextView(this).apply {
             text = android.text.SpannableString("GleeshPlayer").apply {
-                setSpan(android.text.style.ForegroundColorSpan(0xFF20D66B.toInt()), 0, 6, 0)
+                setSpan(android.text.style.ForegroundColorSpan(palette.accent), 0, 6, 0)
                 setSpan(android.text.style.ForegroundColorSpan(0xFF101820.toInt()), 6, length, 0)
                 setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, length, 0)
             }
@@ -251,7 +274,7 @@ class MainActivity : AppCompatActivity() {
         val sort = TextView(this).apply {
             text = "↕ ${sortLabels[sortMode]}"
             textSize = 12f
-            setTextColor(0xFF20D66B.toInt())
+            setTextColor(palette.accent)
             setPadding(dp(8), dp(8), dp(8), dp(8))
             setOnClickListener {
                 sortMode = (sortMode + 1) % sortLabels.size
@@ -262,7 +285,7 @@ class MainActivity : AppCompatActivity() {
         val refresh = TextView(this).apply {
             text = "↻"
             textSize = 27f
-            setTextColor(0xFF20D66B.toInt())
+            setTextColor(palette.accent)
             setPadding(dp(12), dp(4), dp(4), dp(4))
             setOnClickListener { if (hasVideoPermission()) loadLibrary() else requestVideoPermission() }
         }
@@ -270,7 +293,7 @@ class MainActivity : AppCompatActivity() {
         val settings = TextView(this).apply {
             text = "⚙"
             textSize = 24f
-            setTextColor(0xFF20D66B.toInt())
+            setTextColor(palette.accent)
             setPadding(dp(12), dp(4), 0, dp(4))
             contentDescription = "Settings"
             setOnClickListener { startActivity(Intent(this@MainActivity, SettingsActivity::class.java)) }
@@ -282,10 +305,10 @@ class MainActivity : AppCompatActivity() {
             hint = "Search videos or folders"
             setSingleLine(true)
             textSize = 14f
-            setTextColor(0xFFF1F5F7.toInt())
-            setHintTextColor(0xFF8997A1.toInt())
+            setTextColor(palette.text)
+            setHintTextColor(palette.muted)
             setPadding(dp(14), dp(11), dp(14), dp(11))
-            setBackgroundColor(0xFF111A22.toInt())
+            setBackgroundColor(palette.surface)
             imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
             setText(searchQuery)
             setSelection(text.length)
@@ -304,7 +327,7 @@ class MainActivity : AppCompatActivity() {
             val clearSearch = TextView(this@MainActivity).apply {
                 text = "✕"
                 textSize = 18f
-                setTextColor(0xFF20D66B.toInt())
+                setTextColor(palette.accent)
                 gravity = Gravity.CENTER
                 setPadding(dp(14), dp(10), dp(4), dp(10))
                 setOnClickListener {
@@ -319,33 +342,33 @@ class MainActivity : AppCompatActivity() {
         })
 
         if (folder != null) {
-            val back = text("‹  ALL FOLDERS", 13f, 0xFF20D66B.toInt(), true).apply {
+            val back = text("‹  ALL FOLDERS", 13f, palette.accent, true).apply {
                 setPadding(0, dp(22), 0, dp(8))
                 setOnClickListener { selectedFolder = null; renderHome() }
             }
             content.addView(back)
             val folderVideos = allVideos.filter { it.folderPath == folder }
             val folderName = folderVideos.firstOrNull()?.folder ?: "Folder"
-            content.addView(text(folderName, 26f, 0xFFF1F5F7.toInt(), true))
+            content.addView(text(folderName, 26f, palette.text, true))
             val videos = sortVideos(folderVideos.filter {
                 searchQuery.isBlank() || it.title.contains(searchQuery, true)
             })
-            content.addView(text("${videos.size} videos", 13f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(5), 0, dp(16)) })
+            content.addView(text("${videos.size} videos", 13f, palette.muted).apply { setPadding(0, dp(5), 0, dp(16)) })
             videos.forEach { addVideoRow(it) }
             return
         }
 
-        content.addView(text("Your videos", 29f, 0xFFF1F5F7.toInt(), true).apply { setPadding(0, dp(25), 0, dp(2)) })
-        content.addView(text("${allVideos.size} videos on this device", 13f, 0xFF8997A1.toInt()).apply { setPadding(0, 0, 0, dp(20)) })
+        content.addView(text("Your videos", 29f, palette.text, true).apply { setPadding(0, dp(25), 0, dp(2)) })
+        content.addView(text("${allVideos.size} videos on this device", 13f, palette.muted).apply { setPadding(0, 0, 0, dp(20)) })
 
         if (searchQuery.isNotBlank()) {
             val matches = sortVideos(allVideos.filter {
                 it.title.contains(searchQuery, true) || it.folder.contains(searchQuery, true)
             })
             sectionTitle("Search results")
-            content.addView(text("${matches.size} matches", 12f, 0xFF8997A1.toInt()))
+            content.addView(text("${matches.size} matches", 12f, palette.muted))
             if (matches.isEmpty()) {
-                content.addView(text("No videos match “$searchQuery”.", 14f, 0xFF8997A1.toInt()).apply {
+                content.addView(text("No videos match “$searchQuery”.", 14f, palette.muted).apply {
                     setPadding(0, dp(12), 0, dp(12))
                 })
             } else {
@@ -360,7 +383,7 @@ class MainActivity : AppCompatActivity() {
         val recentUris = try { JSONArray(recentIds).let { arr -> (0 until arr.length()).map { arr.getString(it) } } } catch (_: Exception) { emptyList() }
         val recent = recentUris.mapNotNull { uri -> allVideos.firstOrNull { it.uri.toString() == uri } }.distinctBy { it.uri }.take(10)
         if (recent.isEmpty()) {
-            content.addView(text("Your recently watched videos will appear here.", 13f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(4), 0, dp(14)) })
+            content.addView(text("Your recently watched videos will appear here.", 13f, palette.muted).apply { setPadding(0, dp(4), 0, dp(14)) })
         } else {
             val strip = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
             val horizontal = android.widget.HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(strip) }
@@ -371,7 +394,7 @@ class MainActivity : AppCompatActivity() {
                     setOnClickListener { openVideo(video) }
                 }
                 card.addView(thumbnail(video, dp(148), dp(88)))
-                card.addView(text(video.title, 12f, 0xFFE7ECEF.toInt(), true).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
+                card.addView(text(video.title, 12f, palette.text, true).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
                 strip.addView(card, LinearLayout.LayoutParams(dp(148), -2))
             }
             content.addView(horizontal)
@@ -382,7 +405,7 @@ class MainActivity : AppCompatActivity() {
         sectionTitle("Folders")
         val folders = allVideos.groupBy { it.folderPath }.toSortedMap(String.CASE_INSENSITIVE_ORDER)
         if (folders.isEmpty()) {
-            content.addView(text("No videos found. Allow video access or add videos to your device.", 14f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(8), 0, dp(18)) })
+            content.addView(text("No videos found. Allow video access or add videos to your device.", 14f, palette.muted).apply { setPadding(0, dp(8), 0, dp(18)) })
         } else {
             folders.forEach { (path, videos) ->
                 val name = videos.firstOrNull()?.folder ?: "Folder"
@@ -390,18 +413,18 @@ class MainActivity : AppCompatActivity() {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(dp(14), dp(13), dp(14), dp(13))
-                    setBackgroundColor(0xFF111A22.toInt())
+                    setBackgroundColor(palette.surface)
                     setOnClickListener { selectedFolder = path; renderHome() }
                 }
-                val icon = text("▣", 25f, 0xFF20D66B.toInt(), true)
+                val icon = text("▣", 25f, palette.accent, true)
                 row.addView(icon)
                 val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), 0, 0, 0) }
-                labels.addView(text(name, 15f, 0xFFF0F4F6.toInt(), true))
+                labels.addView(text(name, 15f, palette.text, true))
                 val parentPath = path.trimEnd('/').substringBeforeLast('/', "Internal storage").ifBlank { "Internal storage" }
-                labels.addView(text(parentPath, 11f, 0xFF8997A1.toInt()))
-                labels.addView(text("${videos.size} videos", 12f, 0xFF8997A1.toInt()))
+                labels.addView(text(parentPath, 11f, palette.muted))
+                labels.addView(text("${videos.size} videos", 12f, palette.muted))
                 row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
-                row.addView(text("›", 25f, 0xFF8997A1.toInt()))
+                row.addView(text("›", 25f, palette.muted))
                 val params = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) }
                 content.addView(row, params)
             }
@@ -418,7 +441,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun sectionTitle(value: String) {
-        content.addView(text(value, 19f, 0xFFF1F5F7.toInt(), true).apply {
+        content.addView(text(value, 19f, palette.text, true).apply {
             setPadding(0, dp(24), 0, dp(12))
         })
     }
@@ -428,18 +451,18 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(10), dp(9), dp(10), dp(9))
-            setBackgroundColor(0xFF111A22.toInt())
+            setBackgroundColor(palette.surface)
             setOnClickListener { openVideo(video) }
         }
         row.addView(thumbnail(video, dp(104), dp(66)))
         val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, 0, 0) }
-        labels.addView(text(video.title, 14f, 0xFFEAF0F3.toInt(), true).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.MIDDLE })
+        labels.addView(text(video.title, 14f, palette.text, true).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.MIDDLE })
         val details = mutableListOf(formatDuration(video.duration))
         val resolution = video.width.coerceAtLeast(0).takeIf { it > 0 }?.let { "${it}×${video.height}" }
         if (resolution != null) details.add(resolution)
         if (video.sizeBytes > 0L) details.add(formatFileSize(video.sizeBytes))
         details.add(video.folder)
-        labels.addView(text(details.joinToString("  •  "), 11f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(5), 0, 0) })
+        labels.addView(text(details.joinToString("  •  "), 11f, palette.muted).apply { setPadding(0, dp(5), 0, 0) })
         row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
         content.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
     }
@@ -449,7 +472,7 @@ class MainActivity : AppCompatActivity() {
         val image = ImageView(this).apply {
             layoutParams = LinearLayout.LayoutParams(width, height)
             scaleType = ImageView.ScaleType.CENTER_CROP
-            setBackgroundColor(0xFF202C35.toInt())
+            setBackgroundColor(palette.raised)
             setImageResource(android.R.drawable.ic_media_play)
             tag = cacheKey
         }
