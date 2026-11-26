@@ -105,19 +105,32 @@ class SettingsActivity : AppCompatActivity() {
         val excluded = prefs.getStringSet("excluded_scan_folders", emptySet())?.toMutableSet() ?: mutableSetOf()
         body.addView(label(folders.size.toString() + " folders found", 12f, 0xFF20D66B.toInt(), true).apply { setPadding(0, 0, 0, dp(12)) })
         folders.toSortedMap(String.CASE_INSENSITIVE_ORDER).forEach { (path, details) ->
-            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(14), dp(13), dp(12), dp(13)); setBackgroundColor(0xFF111A22.toInt()) }
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(14), dp(13), dp(12), dp(13))
+            }
             val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-            labels.addView(label(details.first, 15f, 0xFFF1F5F7.toInt(), true))
-            labels.addView(label(details.second.toString() + " videos", 12f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(4), 0, 0) })
+            val folderName = label(details.first, 15f, 0xFFF1F5F7.toInt(), true)
+            val videoCount = label(details.second.toString() + " videos", 12f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(4), 0, 0) }
+            labels.addView(folderName)
+            labels.addView(videoCount)
             row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
+            fun styleFolderRow(enabled: Boolean) {
+                row.setBackgroundColor(if (enabled) 0xFF111A22.toInt() else 0xFF252C32.toInt())
+                folderName.setTextColor(if (enabled) 0xFFF1F5F7.toInt() else 0xFF7D878E.toInt())
+                videoCount.setTextColor(if (enabled) 0xFF8997A1.toInt() else 0xFF68737B.toInt())
+            }
             val toggle = SwitchCompat(this).apply {
                 isChecked = path !in excluded
                 showText = false
                 splitTrack = false
                 thumbTintList = ColorStateList.valueOf(0xFFF1F5F7.toInt())
                 trackTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(0xFF20D66B.toInt(), 0xFF46515A.toInt()))
+                styleFolderRow(isChecked)
                 setOnCheckedChangeListener { _, enabled ->
                     if (enabled) excluded.remove(path) else excluded.add(path)
+                    styleFolderRow(enabled)
                     prefs.edit().putStringSet("excluded_scan_folders", excluded.toSet()).putBoolean("scan_settings_changed", true).apply()
                 }
             }
