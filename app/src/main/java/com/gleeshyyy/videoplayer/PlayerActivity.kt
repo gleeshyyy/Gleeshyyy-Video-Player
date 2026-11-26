@@ -1,6 +1,11 @@
 package com.gleeshyyy.videoplayer
 
 import android.content.res.Configuration
+import android.media.AudioManager
+import android.provider.Settings
+import android.view.MotionEvent
+import android.view.GestureDetector
+import android.widget.FrameLayout
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -18,6 +23,12 @@ class PlayerActivity : AppCompatActivity() {
     private var videoKey: String = ""
     private val playbackSpeeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
     private var playbackSpeedIndex = 2
+    private lateinit var gestureLayer: View
+    private var gestureMode = 0
+    private var lastGestureX = 0f
+    private var lastGestureY = 0f
+    private var gestureBrightness = 0.5f
+    private lateinit var audioManager: AudioManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,9 +75,20 @@ class PlayerActivity : AppCompatActivity() {
         playerView = PlayerView(this).apply {
             useController = true
             setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+            setShowRewindButton(false)
+            setShowFastForwardButton(false)
             setBackgroundColor(0xFF000000.toInt())
         }
-        root.addView(playerView, LinearLayout.LayoutParams(-1, 0, 1f))
+        val playbackArea = FrameLayout(this)
+        playbackArea.addView(playerView, FrameLayout.LayoutParams(-1, -1))
+        gestureLayer = View(this).apply {
+            setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            setOnTouchListener { _, event -> handlePlaybackGesture(event) }
+        }
+        playbackArea.addView(gestureLayer, FrameLayout.LayoutParams(-1, -1))
+        root.addView(playbackArea, LinearLayout.LayoutParams(-1, 0, 1f))
+        audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
+        gestureBrightness = currentBrightness()
         setContentView(root)
         updateSystemBars()
 
@@ -80,6 +102,74 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+
+    private fun handlePlaybackGesture(event: MotionEvent): Boolean {
+        val width = gestureLayer.width.coerceAtLeast(1)
+        val height = gestureLayer.height.coerceAtLeast(1)
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                lastGestureX = event.x
+                lastGestureY = event.y
+                gestureMode = 0
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val dx = event.x - lastGestureX
+                val dy = event.y - lastGestureY
+                if (gestureMode == 0 && (kotlin.math.abs(dx) > 8f || kotlin.math.abs(dy) > 8f)) {
+                    gestureMode = if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) 1
+                    else if (lastGestureX < width / 2f) 2 else 3
+                }
+                when (gestureMode) {
+                    1 -> {
+                        val duration = player?.duration ?: 0L
+                        if (duration > 0L) {
+                            val target = ((player?.currentPosition ?: 0L) - dx * 55L)
+                                .coerceIn(0L, duration)
+                            player?.seekTo(target)
+                        }
+                    }
+                    2 -> {
+                        gestureBrightness = (gestureBrightness - dy / height).coerceIn(0.05f, 1f)
+                        window.attributes = window.attributes.apply { screenBrightness = gestureBrightness }
+                    }
+                    3 -> {
+                        val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                        val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                        val change = (-dy / height * max).toInt()
+                        audioManager.setStreamVolume(
+                            AudioManager.STREAM_MUSIC,
+                            (current + change).coerceIn(0, max),
+                            0
+                        )
+                    }
+                }
+                lastGestureX = event.x
+                lastGestureY = event.y
+                return true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                if (gestureMode == 0 && event.actionMasked == MotionEvent.ACTION_UP) {
+                    playerView.performClick()
+                    if (playerView.isControllerFullyVisible) playerView.hideController()
+                    else playerView.showController()
+                }
+                gestureMode = 0
+                return true
+            }
+        }
+        return true
+    }
+
+    private fun currentBrightness(): Float {
+        val windowBrightness = window.attributes.screenBrightness
+        if (windowBrightness >= 0f) return windowBrightness.coerceIn(0.05f, 1f)
+        return try {
+            Settings.System.getInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS) / 255f
+        } catch (_: Exception) {
+            0.5f
+        }.coerceIn(0.05f, 1f)
+    }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
@@ -132,6 +222,7 @@ class PlayerActivity : AppCompatActivity() {
         if (::playerView.isInitialized) playerView.player = null
         player?.release()
         player = null
+        window.attributes = window.attributes.apply { screenBrightness = -1f }
         super.onDestroy()
     }
 }
