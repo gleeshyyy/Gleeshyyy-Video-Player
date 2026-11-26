@@ -51,6 +51,7 @@ class MainActivity : AppCompatActivity() {
     private var sortMode = 0
     private var searchQuery = ""
     private var libraryLoaded = false
+    private var scanInProgress = false
     private val sortLabels = listOf("Recent", "A–Z", "Longest")
     private val libraryExecutor = Executors.newSingleThreadExecutor()
     private var libraryLoadGeneration = 0
@@ -63,6 +64,11 @@ class MainActivity : AppCompatActivity() {
     private val recentPrefs by lazy { getSharedPreferences("gleeshplayer_history", MODE_PRIVATE) }
 
     private val permissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        if (hasVideoPermission()) {
+            allVideos = readCachedVideos()
+            libraryLoaded = true
+            renderHome()
+        }
         loadLibrary()
     }
 
@@ -198,6 +204,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadLibrary() {
         val generation = ++libraryLoadGeneration
+        scanInProgress = true
+        if (libraryLoaded) renderHome()
         if (!libraryLoaded) {
             content.removeAllViews()
             content.addView(text("Scanning your videos…", 15f, palette.muted).apply {
@@ -211,6 +219,7 @@ class MainActivity : AppCompatActivity() {
                 allVideos = videos
                 writeCachedVideos(videos)
                 libraryLoaded = true
+                scanInProgress = false
                 if (selectedFolder != null && videos.none { it.folderPath == selectedFolder }) selectedFolder = null
                 renderHome()
             }
@@ -402,7 +411,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         content.addView(text("Your videos", 29f, palette.text, true).apply { setPadding(0, dp(25), 0, dp(2)) })
-        content.addView(text("${allVideos.size} videos on this device", 13f, palette.muted).apply { setPadding(0, 0, 0, dp(20)) })
+        content.addView(text("${allVideos.size} videos on this device", 13f, palette.muted).apply { setPadding(0, 0, 0, dp(6)) })
+        if (scanInProgress) content.addView(text("Updating video library…", 11f, palette.muted).apply { setPadding(0, 0, 0, dp(14)) })
 
         if (searchQuery.isNotBlank()) {
             val matches = sortVideos(allVideos.filter {
