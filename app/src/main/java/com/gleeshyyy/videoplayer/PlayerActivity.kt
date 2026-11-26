@@ -443,7 +443,7 @@ class PlayerActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dpPlayer(18), dpPlayer(10), dpPlayer(18), dpPlayer(14))
             background = android.graphics.drawable.GradientDrawable().apply {
-                setColor(if (palette.isDark) 0xE6121A20.toInt() else 0xE6F3F6F7.toInt())
+                setColor(if (palette.isDark) 0xB5121A20.toInt() else 0xB5F3F6F7.toInt())
                 cornerRadius = dpPlayer(18).toFloat()
             }
             tag = "subtitle_customization_sheet"
