@@ -39,6 +39,7 @@ data class VideoItem(
 
 class MainActivity : AppCompatActivity() {
     private lateinit var content: LinearLayout
+    private lateinit var libraryScroll: ScrollView
     private var allVideos: List<VideoItem> = emptyList()
     private var selectedFolder: String? = null
     private var sortMode = 0
@@ -76,7 +77,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (libraryLoaded) renderHome()
+        if (libraryLoaded) {
+            val previousScroll = if (::libraryScroll.isInitialized) libraryScroll.scrollY else 0
+            renderHome()
+            if (::libraryScroll.isInitialized) {
+                libraryScroll.post { libraryScroll.scrollTo(0, previousScroll) }
+            }
+        }
     }
 
     private fun showBrandSplash() {
@@ -102,7 +109,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showVideoLibrary() {
-        val scroll = ScrollView(this).apply {
+        libraryScroll = ScrollView(this).apply {
             setBackgroundColor(0xFF080D12.toInt())
             isFillViewport = true
         }
@@ -110,8 +117,8 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(22), dp(20), dp(30))
         }
-        scroll.addView(content)
-        setContentView(scroll)
+        libraryScroll.addView(content)
+        setContentView(libraryScroll)
         if (hasVideoPermission()) loadLibrary() else requestVideoPermission()
     }
 
