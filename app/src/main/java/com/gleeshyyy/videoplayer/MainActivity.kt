@@ -40,6 +40,7 @@ class MainActivity : AppCompatActivity() {
     private var selectedFolder: String? = null
     private var sortMode = 0
     private var searchQuery = ""
+    private var libraryLoaded = false
     private val sortLabels = listOf("Recent", "A–Z", "Longest")
     private val recentPrefs by lazy { getSharedPreferences("gleeshplayer_history", MODE_PRIVATE) }
 
@@ -68,6 +69,11 @@ class MainActivity : AppCompatActivity() {
             }
         })
         showBrandSplash()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (libraryLoaded) renderHome()
     }
 
     private fun showBrandSplash() {
@@ -130,6 +136,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadLibrary() {
         allVideos = if (hasVideoPermission()) queryVideos() else emptyList()
+        libraryLoaded = true
         selectedFolder = null
         renderHome()
     }
