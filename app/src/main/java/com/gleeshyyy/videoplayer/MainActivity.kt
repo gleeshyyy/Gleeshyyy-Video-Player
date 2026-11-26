@@ -89,10 +89,16 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (libraryLoaded) {
-            val previousScroll = if (::libraryScroll.isInitialized) libraryScroll.scrollY else 0
-            renderHome()
-            if (::libraryScroll.isInitialized) {
-                libraryScroll.post { libraryScroll.scrollTo(0, previousScroll) }
+            val settings = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+            if (settings.getBoolean("scan_settings_changed", false)) {
+                settings.edit().putBoolean("scan_settings_changed", false).apply()
+                loadLibrary()
+            } else {
+                val previousScroll = if (::libraryScroll.isInitialized) libraryScroll.scrollY else 0
+                renderHome()
+                if (::libraryScroll.isInitialized) {
+                    libraryScroll.post { libraryScroll.scrollTo(0, previousScroll) }
+                }
             }
         }
     }
@@ -219,7 +225,9 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         } catch (_: SecurityException) { }
-        return result
+        val excludedFolders = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+            .getStringSet("excluded_scan_folders", emptySet()) ?: emptySet()
+        return result.filterNot { it.folderPath in excludedFolders }
     }
 
     private fun renderHome() {
