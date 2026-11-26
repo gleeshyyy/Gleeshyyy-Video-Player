@@ -107,15 +107,6 @@ class PlayerActivity : AppCompatActivity() {
             setOnClickListener { showSubtitleCustomization() }
         }
         heading.addView(subtitleButton)
-        val loadSubtitleButton = TextView(this).apply {
-            text = "SUB"
-            textSize = 13f
-            setTextColor(palette.accent)
-            setPadding(12, 10, 4, 10)
-            contentDescription = "Load external SRT subtitle"
-            setOnClickListener { subtitlePicker.launch(arrayOf("*/*")) }
-        }
-        heading.addView(loadSubtitleButton)
         val fitButton = TextView(this).apply {
             text = "FIT"
             textSize = 12f
@@ -268,6 +259,44 @@ class PlayerActivity : AppCompatActivity() {
         return name
     }
 
+    private fun showEmbeddedSubtitleTracks() {
+        val currentPlayer = player ?: return
+        val choices = mutableListOf("Off")
+        val selections = mutableListOf<Pair<androidx.media3.common.TrackGroup, Int>?> (null)
+        currentPlayer.currentTracks.groups.forEach { group ->
+            if (group.type == C.TRACK_TYPE_TEXT) {
+                for (index in 0 until group.length) {
+                    if (!group.isTrackSupported(index)) continue
+                    val format = group.getTrackFormat(index)
+                    val language = format.language?.takeIf { it.isNotBlank() && it != "und" }
+                    val label = format.label?.takeIf { it.isNotBlank() }
+                    val description = label ?: language ?: ("Subtitle " + selections.size)
+                    choices.add(description)
+                    selections.add(group.mediaTrackGroup to index)
+                }
+            }
+        }
+        if (choices.size == 1) {
+            AlertDialog.Builder(this).setTitle("Embedded subtitles")
+                .setMessage("No embedded subtitle tracks were found in this video.")
+                .setPositiveButton("OK", null).show()
+            return
+        }
+        AlertDialog.Builder(this).setTitle("Embedded subtitles")
+            .setItems(choices.toTypedArray()) { _, which ->
+                val builder = currentPlayer.trackSelectionParameters.buildUpon()
+                    .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                if (which == 0) {
+                    builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                } else {
+                    val selected = selections[which] ?: return@setItems
+                    builder.addOverride(androidx.media3.common.TrackSelectionOverride(selected.first, listOf(selected.second)))
+                }
+                currentPlayer.trackSelectionParameters = builder.build()
+            }.show()
+    }
+
     private fun subtitlePrefs() = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
 
     private fun subtitleRemembered(): Boolean = subtitlePrefs().getBoolean("remember_subtitles", true)
@@ -307,6 +336,17 @@ class PlayerActivity : AppCompatActivity() {
                 })
             })
         }
+        val trackActions = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        trackActions.addView(Button(this).apply {
+            text = "Choose embedded subtitles"
+            setOnClickListener { showEmbeddedSubtitleTracks() }
+        }, LinearLayout.LayoutParams(-1, dpPlayer(46)).apply { bottomMargin = dpPlayer(6) })
+        trackActions.addView(Button(this).apply {
+            text = "Load external .srt file"
+            setOnClickListener { subtitlePicker.launch(arrayOf("*/*")) }
+        }, LinearLayout.LayoutParams(-1, dpPlayer(46)))
+        panel.addView(trackActions)
+        caption("Subtitle appearance")
         slider("Subtitle size", ((currentSize - 12f) / 1.5f).toInt(), 16) { value ->
             currentSize = 12f + value * 1.5f
             applySubtitleStyle(currentSize, currentColor, currentPosition, true)
