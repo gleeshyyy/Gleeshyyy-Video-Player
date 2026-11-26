@@ -932,7 +932,7 @@ class PlayerActivity : AppCompatActivity() {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
             isClickable = true
             isFocusable = true
-            addView(panel, android.widget.ScrollView.LayoutParams(-1, -2))
+            addView(panel, android.view.ViewGroup.LayoutParams(-1, -2))
             setOnTouchListener { view, event ->
                 if (event.actionMasked == MotionEvent.ACTION_DOWN || event.actionMasked == MotionEvent.ACTION_MOVE)
                     view.parent?.requestDisallowInterceptTouchEvent(true)
@@ -1073,7 +1073,7 @@ class PlayerActivity : AppCompatActivity() {
                 if (!hasFocus) {
                     val parsed = text?.toString()?.trim()?.toFloatOrNull()
                     subtitleDelayMs = ((parsed ?: 0f) * 1000f).toLong().coerceIn(-10_000L, 10_000L)
-                    refresh()
+                    value.text = if (subtitleDelayMs == 0L) "0.0s" else String.format(java.util.Locale.US, "%+.1fs", subtitleDelayMs / 1000f)
                 }
             }
             addTextChangedListener(object : android.text.TextWatcher {
