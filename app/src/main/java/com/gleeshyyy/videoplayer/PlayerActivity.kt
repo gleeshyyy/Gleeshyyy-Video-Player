@@ -31,7 +31,7 @@ class PlayerActivity : AppCompatActivity() {
     private var lastGestureY = 0f
     private var gestureBrightness = 0.5f
     private var longPressSpeedActive = false
-    private val longPressSpeed = 2.0f // Will become configurable in Settings.
+    private var longPressSpeed = 2.0f
     private lateinit var audioManager: AudioManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,6 +39,7 @@ class PlayerActivity : AppCompatActivity() {
         val uri = intent.data ?: run { finish(); return }
         val title = intent.getStringExtra("title") ?: uri.lastPathSegment ?: "Video"
         videoKey = uri.toString()
+        longPressSpeed = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getFloat("long_press_speed", 2.0f)
         remember(videoKey)
 
         val root = LinearLayout(this).apply {
