@@ -1,7 +1,9 @@
 package com.gleeshyyy.videoplayer
 
+import android.content.res.Configuration
 import android.os.Bundle
 import android.view.Gravity
+import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -44,6 +46,7 @@ class PlayerActivity : AppCompatActivity() {
         }
         root.addView(playerView, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(root)
+        updateSystemBars()
 
         val prefs = getSharedPreferences("gleeshplayer_history", MODE_PRIVATE)
         val resumeAt = prefs.getLong("position_$videoKey", 0L).coerceAtLeast(0L)
@@ -52,6 +55,23 @@ class PlayerActivity : AppCompatActivity() {
             it.setMediaItem(MediaItem.fromUri(uri), resumeAt)
             it.prepare()
             it.play()
+        }
+    }
+
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        updateSystemBars()
+    }
+
+    private fun updateSystemBars() {
+        val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        window.decorView.systemUiVisibility = if (landscape) {
+            View.SYSTEM_UI_FLAG_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        } else {
+            View.SYSTEM_UI_FLAG_VISIBLE
         }
     }
 
