@@ -30,6 +30,8 @@ class PlayerActivity : AppCompatActivity() {
     private var lastGestureX = 0f
     private var lastGestureY = 0f
     private var gestureBrightness = 0.5f
+    private var longPressSpeedActive = false
+    private val longPressSpeed = 2.0f // Will become configurable in Settings.
     private lateinit var audioManager: AudioManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -93,13 +95,28 @@ class PlayerActivity : AppCompatActivity() {
             }
 
             override fun onDoubleTap(e: MotionEvent): Boolean {
-                val current = player?.currentPosition ?: 0L
-                val duration = player?.duration ?: 0L
-                if (duration > 0L) {
-                    val forward = e.x >= gestureLayer.width / 2f
-                    player?.seekTo((current + if (forward) 10_000L else -10_000L).coerceIn(0L, duration))
+                val zone = e.x / gestureLayer.width.coerceAtLeast(1).toFloat()
+                when {
+                    zone < 1f / 3f -> {
+                        val current = player?.currentPosition ?: 0L
+                        val duration = player?.duration ?: 0L
+                        if (duration > 0L) player?.seekTo((current - 10_000L).coerceIn(0L, duration))
+                    }
+                    zone > 2f / 3f -> {
+                        val current = player?.currentPosition ?: 0L
+                        val duration = player?.duration ?: 0L
+                        if (duration > 0L) player?.seekTo((current + 10_000L).coerceIn(0L, duration))
+                    }
+                    else -> {
+                        player?.let { if (it.isPlaying) it.pause() else it.play() }
+                    }
                 }
                 return true
+            }
+
+            override fun onLongPress(e: MotionEvent) {
+                player?.setPlaybackSpeed(longPressSpeed)
+                longPressSpeedActive = true
             }
         })
         gestureLayer = View(this).apply {
@@ -176,6 +193,10 @@ class PlayerActivity : AppCompatActivity() {
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 gestureMode = 0
+                if (longPressSpeedActive) {
+                    player?.setPlaybackSpeed(playbackSpeeds[playbackSpeedIndex])
+                    longPressSpeedActive = false
+                }
                 return true
             }
         }
@@ -228,6 +249,10 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
+        if (longPressSpeedActive) {
+            player?.setPlaybackSpeed(playbackSpeeds[playbackSpeedIndex])
+            longPressSpeedActive = false
+        }
         savePosition()
         player?.pause()
         if (::playerView.isInitialized) playerView.onPause()
