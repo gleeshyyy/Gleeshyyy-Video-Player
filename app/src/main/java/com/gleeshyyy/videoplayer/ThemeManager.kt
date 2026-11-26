@@ -38,7 +38,6 @@ object ThemeManager {
             while(bounds.outWidth/sample>1600 || bounds.outHeight/sample>1600) sample*=2
             val options=BitmapFactory.Options().apply { inSampleSize=sample.coerceAtLeast(1); inPreferredConfig=Bitmap.Config.RGB_565 }
             val decoded=resolver.openInputStream(parsed)?.use { BitmapFactory.decodeStream(it,null,options) }
-            cachedBitmap?.takeIf { !it.isRecycled }?.recycle()
             cachedUri=uri
             cachedBitmap=decoded
             decoded
