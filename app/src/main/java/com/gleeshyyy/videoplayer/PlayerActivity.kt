@@ -106,6 +106,16 @@ class PlayerActivity : AppCompatActivity() {
     private var longPressSpeedActive = false
     private var longPressSpeed = 2.0f
     private var seekIntervalMs = 10_000L
+    private val pendingSeekHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var pendingSeekTarget: Long? = null
+    private var pendingSeekStart = 0L
+    private var pendingSeekDirection = 0
+    private val commitPendingSeek = Runnable {
+        val target = pendingSeekTarget
+        pendingSeekTarget = null
+        pendingSeekDirection = 0
+        if (target != null) player?.seekTo(target)
+    }
     private var longPressVibrator: android.os.Vibrator? = null
     private lateinit var audioManager: AudioManager
     private lateinit var feedbackLabel: TextView
@@ -253,27 +263,10 @@ class PlayerActivity : AppCompatActivity() {
             override fun onDoubleTap(e: MotionEvent): Boolean {
                 val zone = e.x / gestureLayer.width.coerceAtLeast(1).toFloat()
                 when {
-                    zone < 1f / 3f -> {
-                        val current = player?.currentPosition ?: 0L
-                        val duration = player?.duration ?: 0L
-                        if (duration > 0L) {
-                            val target = (current - seekIntervalMs).coerceIn(0L, duration)
-                            val moved = current - target
-                            player?.seekTo(target)
-                            if (moved > 0L) seekFeedbackOverlay.show(-1, (moved / 1000L).coerceAtLeast(1L))
-                        }
-                    }
-                    zone > 2f / 3f -> {
-                        val current = player?.currentPosition ?: 0L
-                        val duration = player?.duration ?: 0L
-                        if (duration > 0L) {
-                            val target = (current + seekIntervalMs).coerceIn(0L, duration)
-                            val moved = target - current
-                            player?.seekTo(target)
-                            if (moved > 0L) seekFeedbackOverlay.show(1, (moved / 1000L).coerceAtLeast(1L))
-                        }
-                    }
+                    zone < 1f / 3f -> queueDoubleTapSeek(-1)
+                    zone > 2f / 3f -> queueDoubleTapSeek(1)
                     else -> {
+                        flushPendingSeek()
                         player?.let { if (it.isPlaying) it.pause() else it.play() }
                     }
                 }
@@ -1040,6 +1033,35 @@ class PlayerActivity : AppCompatActivity() {
             }
         }
         return true
+    }
+
+    private fun queueDoubleTapSeek(direction: Int) {
+        val currentPlayer = player ?: return
+        val duration = currentPlayer.duration
+        if (duration <= 0L) return
+
+        val existingTarget = pendingSeekTarget
+        if (existingTarget != null && pendingSeekDirection != direction) {
+            flushPendingSeek()
+        }
+
+        val base = pendingSeekTarget ?: currentPlayer.currentPosition.coerceIn(0L, duration)
+        if (pendingSeekTarget == null) pendingSeekStart = base
+        pendingSeekDirection = direction
+        val target = (base + direction * seekIntervalMs).coerceIn(0L, duration)
+        pendingSeekTarget = target
+
+        val totalMoved = kotlin.math.abs(target - pendingSeekStart)
+        val shownSeconds = (totalMoved / 1000L).coerceAtLeast(1L)
+        seekFeedbackOverlay.show(direction, shownSeconds)
+
+        pendingSeekHandler.removeCallbacks(commitPendingSeek)
+        pendingSeekHandler.postDelayed(commitPendingSeek, 450L)
+    }
+
+    private fun flushPendingSeek() {
+        pendingSeekHandler.removeCallbacks(commitPendingSeek)
+        commitPendingSeek.run()
     }
 
     private fun showGestureFeedback(label: String, progress: Int, keepVisible: Boolean) {
