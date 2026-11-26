@@ -151,7 +151,7 @@ class PlayerActivity : AppCompatActivity() {
                     1 -> {
                         val duration = player?.duration ?: 0L
                         if (duration > 0L) {
-                            val target = ((player?.currentPosition ?: 0L) - dx * 55L)
+                            val target = ((player?.currentPosition ?: 0L) - (dx * 55f).toLong())
                                 .coerceIn(0L, duration)
                             player?.seekTo(target)
                         }
