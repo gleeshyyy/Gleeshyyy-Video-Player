@@ -257,9 +257,6 @@ class MainActivity : AppCompatActivity() {
         }
         bar.addView(item("▰", "Folders", 0), LinearLayout.LayoutParams(0, -1, 1f))
         bar.addView(item("▶", "Videos", 1), LinearLayout.LayoutParams(0, -1, 1f))
-        bar.addView(item("🌐", "Stream", 2).apply {
-            setOnClickListener { startActivity(Intent(this@MainActivity, StreamActivity::class.java)) }
-        }, LinearLayout.LayoutParams(0, -1, 1f))
         return bar
     }
 
@@ -281,6 +278,15 @@ class MainActivity : AppCompatActivity() {
         libraryScroll.setBackgroundColor(if (isPicture) Color.TRANSPARENT else palette.background)
         window.statusBarColor = palette.background
         window.navigationBarColor = palette.background
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
+        val systemUi = window.decorView.systemUiVisibility
+        window.decorView.systemUiVisibility = if (palette.isDark) {
+            systemUi and View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR.inv()
+        } else {
+            systemUi or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+        }
         if (!isPicture || pictureUri.isNullOrBlank()) return
         // Decode and read the wallpaper on a worker thread, never on the UI thread.
         wallpaperExecutor.execute {
