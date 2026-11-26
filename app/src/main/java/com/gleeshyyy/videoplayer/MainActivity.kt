@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Size
+import android.util.LruCache
 import android.view.Gravity
 import android.os.Handler
 import android.os.Looper
@@ -23,6 +24,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import org.json.JSONArray
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
 
 data class VideoItem(
     val id: Long,
@@ -46,6 +49,12 @@ class MainActivity : AppCompatActivity() {
     private var searchQuery = ""
     private var libraryLoaded = false
     private val sortLabels = listOf("Recent", "A–Z", "Longest")
+    private val thumbnailExecutor = Executors.newFixedThreadPool(2)
+    private val thumbnailHandler = Handler(Looper.getMainLooper())
+    private val thumbnailCache = object : LruCache<String, Bitmap>(4 * 1024) {
+        override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount / 1024
+    }
+    private val thumbnailLoads = ConcurrentHashMap.newKeySet<String>()
     private val recentPrefs by lazy { getSharedPreferences("gleeshplayer_history", MODE_PRIVATE) }
 
     private val permissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
@@ -403,15 +412,40 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun thumbnail(video: VideoItem, width: Int, height: Int): ImageView {
-        return ImageView(this).apply {
+        val cacheKey = "${video.uri}|${width}x${height}"
+        val image = ImageView(this).apply {
             layoutParams = LinearLayout.LayoutParams(width, height)
             scaleType = ImageView.ScaleType.CENTER_CROP
             setBackgroundColor(0xFF202C35.toInt())
-            try {
-                if (Build.VERSION.SDK_INT >= 29) setImageBitmap(contentResolver.loadThumbnail(video.uri, Size(width, height), null))
-                else setImageResource(android.R.drawable.ic_media_play)
-            } catch (_: Exception) { setImageResource(android.R.drawable.ic_media_play) }
+            setImageResource(android.R.drawable.ic_media_play)
+            tag = cacheKey
         }
+        val cached = thumbnailCache.get(cacheKey)
+        if (cached != null) {
+            image.setImageBitmap(cached)
+        } else if (Build.VERSION.SDK_INT >= 29 && thumbnailLoads.add(cacheKey)) {
+            thumbnailExecutor.execute {
+                val bitmap = try {
+                    contentResolver.loadThumbnail(video.uri, Size(width, height), null)
+                } catch (_: Exception) {
+                    null
+                }
+                if (bitmap != null) thumbnailCache.put(cacheKey, bitmap)
+                thumbnailLoads.remove(cacheKey)
+                thumbnailHandler.post {
+                    if (image.tag == cacheKey) {
+                        if (bitmap != null) image.setImageBitmap(bitmap)
+                        else image.setImageResource(android.R.drawable.ic_media_play)
+                    }
+                }
+            }
+        }
+        return image
+    }
+
+    override fun onDestroy() {
+        thumbnailExecutor.shutdownNow()
+        super.onDestroy()
     }
 
     private fun openVideo(video: VideoItem) {
