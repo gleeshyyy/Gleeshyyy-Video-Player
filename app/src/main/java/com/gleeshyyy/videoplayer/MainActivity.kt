@@ -68,6 +68,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ThemeManager.applySystemMode(this)
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
@@ -92,6 +93,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (libraryLoaded) {
+            applyLibraryTheme()
             val settings = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
             if (settings.getBoolean("scan_settings_changed", false)) {
                 settings.edit().putBoolean("scan_settings_changed", false).apply()
