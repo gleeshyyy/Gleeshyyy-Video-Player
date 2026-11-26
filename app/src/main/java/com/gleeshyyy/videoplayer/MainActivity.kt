@@ -521,12 +521,22 @@ class MainActivity : AppCompatActivity() {
         content.addView(header)
 
         if (folder != null) {
-            val back = text("‹  ALL FOLDERS", 17f, palette.accent, true).apply {
-                setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 17f)
-                setPadding(0, dp(20), 0, dp(12))
-                minHeight = dp(56)
+            val back = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
+                isClickable = true
+                isFocusable = true
+                setPadding(0, dp(8), dp(12), dp(8))
+                contentDescription = "Back to all folders"
                 setOnClickListener { selectedFolder = null; renderHome() }
+                addView(ImageView(this@MainActivity).apply {
+                    setImageResource(android.R.drawable.ic_media_previous)
+                    imageTintList = android.content.res.ColorStateList.valueOf(palette.accent)
+                    contentDescription = null
+                    scaleType = ImageView.ScaleType.CENTER
+                    setPadding(dp(4), dp(4), dp(8), dp(4))
+                }, LinearLayout.LayoutParams(dp(44), dp(44)))
+                addView(text("ALL FOLDERS", 16f, palette.accent, true))
             }
             content.addView(back, LinearLayout.LayoutParams(-1, dp(58)))
             val folderVideos = allVideos.filter { it.folderPath == folder }
