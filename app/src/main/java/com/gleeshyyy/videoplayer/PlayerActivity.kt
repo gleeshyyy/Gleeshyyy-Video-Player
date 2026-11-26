@@ -85,6 +85,7 @@ class PlayerActivity : AppCompatActivity() {
     private var playlistUris: ArrayList<Uri> = arrayListOf()
     private var playlistIndex = 0
     private var resumePosition = 0L
+    private var resumePromptVisible = false
     private val controlsHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val hideControlsRunnable = Runnable { if (isLandscapeNow()) bottomControls.visibility = View.GONE }
     private var videoIsLandscape = false
@@ -322,7 +323,7 @@ class PlayerActivity : AppCompatActivity() {
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(palette.accent)
             setPadding(dpPlayer(10), dpPlayer(8), dpPlayer(10), dpPlayer(8))
-            setOnClickListener { player?.seekTo(0L); resumeBanner.visibility = View.GONE }
+            setOnClickListener { player?.seekTo(0L); resumePromptVisible = false; resumeBanner.visibility = View.GONE }
         })
         resumeBanner.addView(TextView(this).apply {
             text = "×"
@@ -331,7 +332,7 @@ class PlayerActivity : AppCompatActivity() {
             setTextColor(palette.muted)
             setPadding(dpPlayer(10), dpPlayer(3), dpPlayer(5), dpPlayer(3))
             contentDescription = "Dismiss resume message"
-            setOnClickListener { resumeBanner.visibility = View.GONE }
+            setOnClickListener { resumePromptVisible = false; resumeBanner.visibility = View.GONE }
         })
         playbackContainer.addView(resumeBanner, LinearLayout.LayoutParams(-1, -2))
         subtitleDock = FrameLayout(this).apply {
@@ -461,7 +462,8 @@ class PlayerActivity : AppCompatActivity() {
         resumePosition = prefs.getLong("position_$videoKey", 0L).coerceAtLeast(0L)
         playlistUris = intent.getParcelableArrayListExtra<Uri>("playlist_uris")?.takeIf { it.isNotEmpty() } ?: arrayListOf(uri)
         playlistIndex = intent.getIntExtra("playlist_index", 0).coerceIn(0, playlistUris.lastIndex)
-        if (resumePosition > 1000L) resumeBanner.visibility = View.VISIBLE
+        resumePromptVisible = resumePosition > 1000L
+        if (resumePromptVisible && !isLandscapeNow()) resumeBanner.visibility = View.VISIBLE
         player = ExoPlayer.Builder(this).build().also {
             playerView.player = it
             it.addListener(object : Player.Listener {
@@ -484,6 +486,7 @@ class PlayerActivity : AppCompatActivity() {
                     videoKey = activeUri.toString()
                     playlistIndex = playlistUris.indexOf(activeUri).takeIf { it >= 0 } ?: playlistIndex
                     remember(videoKey)
+                    resumePromptVisible = false
                     resumeBanner.visibility = View.GONE
                 }
                 override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
@@ -925,6 +928,7 @@ class PlayerActivity : AppCompatActivity() {
         (bottomControls.parent as? android.view.ViewGroup)?.removeView(bottomControls)
         if (landscape) {
             playerHeader.visibility = View.GONE
+            resumeBanner.visibility = View.GONE
             subtitleDock.visibility = View.GONE
             playbackArea.addView(bottomControls, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
             bottomControls.setBackgroundColor(0x55000000)
@@ -938,6 +942,7 @@ class PlayerActivity : AppCompatActivity() {
             controlsHandler.removeCallbacks(hideControlsRunnable)
             playbackArea.removeView(bottomControls)
             playerHeader.visibility = View.VISIBLE
+            resumeBanner.visibility = if (resumePromptVisible) View.VISIBLE else View.GONE
             subtitleDock.visibility = View.VISIBLE
             bottomControls.setBackgroundColor(palette.surface)
             controlsBar.setBackgroundColor(palette.surface)
