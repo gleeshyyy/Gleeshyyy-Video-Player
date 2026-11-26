@@ -315,7 +315,7 @@ class MainActivity : AppCompatActivity() {
         val brand = TextView(this).apply {
             text = android.text.SpannableString("GleeshPlayer").apply {
                 setSpan(android.text.style.ForegroundColorSpan(palette.accent), 0, 6, 0)
-                setSpan(android.text.style.ForegroundColorSpan(0xFF101820.toInt()), 6, length, 0)
+                setSpan(android.text.style.ForegroundColorSpan(palette.brandText), 6, length, 0)
                 setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, length, 0)
             }
             textSize = 25f
