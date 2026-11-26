@@ -16,6 +16,8 @@ class PlayerActivity : AppCompatActivity() {
     private var player: ExoPlayer? = null
     private lateinit var playerView: PlayerView
     private var videoKey: String = ""
+    private val playbackSpeeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+    private var playbackSpeedIndex = 2
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,15 +31,35 @@ class PlayerActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(0xFF080D12.toInt())
         }
-        val heading = TextView(this).apply {
+        val heading = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(18, 8, 18, 8)
+        }
+        val backTitle = TextView(this).apply {
             text = "‹    $title"
             textSize = 16f
             setTextColor(0xFFF1F5F7.toInt())
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
-            setPadding(18, 18, 18, 18)
+            setPadding(0, 10, 8, 10)
             setOnClickListener { finish() }
         }
+        heading.addView(backTitle, LinearLayout.LayoutParams(0, -2, 1f))
+        val speedButton = TextView(this).apply {
+            text = "1.0×"
+            textSize = 14f
+            setTextColor(0xFF20D66B.toInt())
+            setPadding(12, 10, 4, 10)
+            contentDescription = "Playback speed"
+            setOnClickListener {
+                playbackSpeedIndex = (playbackSpeedIndex + 1) % playbackSpeeds.size
+                val speed = playbackSpeeds[playbackSpeedIndex]
+                text = "${speed}×"
+                player?.setPlaybackSpeed(speed)
+            }
+        }
+        heading.addView(speedButton)
         root.addView(heading)
         playerView = PlayerView(this).apply {
             useController = true
