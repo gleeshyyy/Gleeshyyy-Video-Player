@@ -36,7 +36,12 @@ class ThemeActivity : AppCompatActivity() {
     }
 
     private fun render() {
-        val dark = mode != "light"
+        val dark = when (mode) {
+            "light" -> false
+            "auto" -> (resources.configuration.uiMode and 0x30) != 0x10
+            "picture" -> ThemeManager.pictureIsDark(this, picture)
+            else -> true
+        }
         val bg = if (dark) Color.rgb(8,13,18) else Color.rgb(246,248,249)
         val fg = if (dark) Color.WHITE else Color.rgb(25,32,38)
         val surface = if (dark) Color.rgb(20,29,37) else Color.WHITE
