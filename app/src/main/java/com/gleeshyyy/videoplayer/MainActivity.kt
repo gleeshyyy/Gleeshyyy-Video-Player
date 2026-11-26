@@ -186,7 +186,7 @@ class MainActivity : AppCompatActivity() {
             textSize = 27f
             setTextColor(0xFF20D66B.toInt())
             setPadding(dp(12), dp(4), dp(4), dp(4))
-            setOnClickListener { loadLibrary() }
+            setOnClickListener { if (hasVideoPermission()) loadLibrary() else requestVideoPermission() }
         }
         header.addView(refresh)
         content.addView(header)
@@ -210,7 +210,24 @@ class MainActivity : AppCompatActivity() {
                 } else false
             }
         }
-        content.addView(searchBox, LinearLayout.LayoutParams(-1, -2).apply {
+        val searchRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(searchBox, LinearLayout.LayoutParams(0, -2, 1f))
+            val clearSearch = TextView(this@MainActivity).apply {
+                text = "✕"
+                textSize = 18f
+                setTextColor(0xFF20D66B.toInt())
+                gravity = Gravity.CENTER
+                setPadding(dp(14), dp(10), dp(4), dp(10))
+                setOnClickListener {
+                    searchQuery = ""
+                    renderHome()
+                }
+            }
+            addView(clearSearch)
+        }
+        content.addView(searchRow, LinearLayout.LayoutParams(-1, -2).apply {
             topMargin = dp(14)
         })
 
