@@ -584,6 +584,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         libraryLoadGeneration++
+        wallpaperRequest++
+        wallpaperExecutor.shutdownNow()
         libraryExecutor.shutdownNow()
         thumbnailExecutor.shutdownNow()
         super.onDestroy()
