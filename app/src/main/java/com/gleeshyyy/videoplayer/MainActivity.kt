@@ -375,7 +375,7 @@ class MainActivity : AppCompatActivity() {
             textSize = 14f
             setTextColor(palette.text)
             setHintTextColor(palette.muted)
-            setPadding(dp(14), dp(11), dp(14), dp(11))
+            setPadding(dp(14), dp(8), dp(14), dp(8))
             setBackgroundColor(panelBackground())
             imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
             setText(searchQuery)
@@ -426,8 +426,6 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        content.addView(text("Your videos", 25f, palette.text, true).apply { setPadding(0, dp(10), 0, dp(1)) })
-        content.addView(text("${allVideos.size} videos on this device", 13f, palette.muted).apply { setPadding(0, 0, 0, dp(6)) })
         if (scanInProgress) content.addView(text("Updating video library…", 11f, palette.muted).apply { setPadding(0, 0, 0, dp(14)) })
 
         if (searchQuery.isNotBlank()) {
@@ -471,8 +469,8 @@ class MainActivity : AppCompatActivity() {
 
         }
 
-        sectionTitle("Folders")
         val folders = allVideos.groupBy { it.folderPath }.toSortedMap(String.CASE_INSENSITIVE_ORDER)
+        sectionTitle("Folders · ${folders.size}")
         if (folders.isEmpty()) {
             content.addView(text("No videos found. Allow video access or add videos to your device.", 14f, palette.muted).apply { setPadding(0, dp(8), 0, dp(18)) })
         } else {
@@ -510,7 +508,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun sectionTitle(value: String) {
-        content.addView(text(value, 19f, palette.text, true).apply {
+        content.addView(text(value, 17f, palette.text, true).apply {
             setPadding(0, dp(15), 0, dp(8))
         })
     }
