@@ -45,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var content: LinearLayout
     private lateinit var libraryScroll: ScrollView
     private lateinit var libraryBackground: ImageView
+    private var selectedTab = 0
     private val palette get() = ThemeManager.palette(this)
     private var allVideos: List<VideoItem> = emptyList()
     private var selectedFolder: String? = null
@@ -149,12 +150,15 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(Color.TRANSPARENT)
             isFillViewport = true
         }
-        frame.addView(libraryScroll, FrameLayout.LayoutParams(-1, -1))
+        val screen = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        frame.addView(screen, FrameLayout.LayoutParams(-1, -1))
+        screen.addView(libraryScroll, LinearLayout.LayoutParams(-1, 0, 1f))
         content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(10), dp(12), dp(18))
         }
         libraryScroll.addView(content)
+        screen.addView(createBottomNavigation(), LinearLayout.LayoutParams(-1, dp(62)))
         setContentView(frame)
         applyLibraryTheme()
         if (hasVideoPermission()) {
@@ -163,6 +167,51 @@ class MainActivity : AppCompatActivity() {
             renderHome()
             loadLibrary()
         } else requestVideoPermission()
+    }
+
+
+    private fun createBottomNavigation(): LinearLayout {
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setBackgroundColor(palette.surface)
+            elevation = dp(8).toFloat()
+        }
+        fun item(icon: String, label: String, tab: Int): LinearLayout {
+            val active = selectedTab == tab
+            return LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                isClickable = true
+                isFocusable = true
+                setPadding(0, dp(5), 0, dp(4))
+                val tint = if (active) palette.accent else palette.muted
+                addView(TextView(this@MainActivity).apply {
+                    text = icon
+                    textSize = 21f
+                    gravity = Gravity.CENTER
+                    setTextColor(tint)
+                }, LinearLayout.LayoutParams(-1, dp(27)))
+                addView(TextView(this@MainActivity).apply {
+                    text = label
+                    textSize = 11f
+                    gravity = Gravity.CENTER
+                    setTextColor(tint)
+                    if (active) setTypeface(typeface, android.graphics.Typeface.BOLD)
+                })
+                setOnClickListener {
+                    if (selectedTab != tab || selectedFolder != null) {
+                        selectedTab = tab
+                        selectedFolder = null
+                        libraryScroll.scrollTo(0, 0)
+                        renderHome()
+                    }
+                }
+            }
+        }
+        bar.addView(item("▰", "Folders", 0), LinearLayout.LayoutParams(0, -1, 1f))
+        bar.addView(item("▶", "Videos", 1), LinearLayout.LayoutParams(0, -1, 1f))
+        return bar
     }
 
     private fun panelBackground(): Int {
@@ -444,6 +493,14 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        if (selectedTab == 1) {
+            sectionTitle("All videos · " + allVideos.size)
+            val videos = sortVideos(allVideos.filter { searchQuery.isBlank() || it.title.contains(searchQuery, true) || it.folder.contains(searchQuery, true) })
+            if (videos.isEmpty()) content.addView(text("No videos found.", 14f, palette.muted).apply { setPadding(0, dp(8), 0, dp(18)) })
+            else videos.forEach { addVideoRow(it) }
+            return
+        }
+
         if (getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getBoolean("show_history", true)) {
             sectionTitle("Recently played")
         val recentIds = recentPrefs.getString("recent", "[]") ?: "[]"
@@ -497,8 +554,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        sectionTitle("All videos")
-        sortVideos(allVideos).forEach { addVideoRow(it) }
     }
 
     private fun sortVideos(videos: List<VideoItem>): List<VideoItem> = when (sortMode) {
