@@ -16,6 +16,7 @@ import android.os.Handler
 import android.os.Looper
 import android.widget.FrameLayout
 import android.view.View
+import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -56,10 +57,11 @@ class MainActivity : AppCompatActivity() {
     private var selectedFolder: String? = null
     private var sortMode = 0
     private var sortAscending = false
+    private val sortPrefs by lazy { getSharedPreferences("gleeshplayer_sort", MODE_PRIVATE) }
     private var searchQuery = ""
     private var libraryLoaded = false
     private var scanInProgress = false
-    private val sortLabels = listOf("Date modified", "A–Z", "Longest")
+    private val sortLabels = listOf("Longest", "A–Z", "Date modified")
     private val libraryExecutor = Executors.newSingleThreadExecutor()
     private var libraryLoadGeneration = 0
     private val thumbnailExecutor = Executors.newFixedThreadPool(2)
@@ -84,6 +86,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ThemeManager.applySystemMode(this)
+        sortMode = sortPrefs.getInt("sort_mode", 2).coerceIn(0, 2)
+        sortAscending = sortPrefs.getBoolean("sort_ascending", false)
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
@@ -165,7 +169,7 @@ class MainActivity : AppCompatActivity() {
                 if (hasVideoPermission()) loadLibrary() else requestVideoPermission()
             }
         }
-        swipeRefresh.addView(libraryScroll, SwipeRefreshLayout.LayoutParams(-1, -1))
+        swipeRefresh.addView(libraryScroll, ViewGroup.LayoutParams(-1, -1))
         screen.addView(swipeRefresh, LinearLayout.LayoutParams(-1, 0, 1f))
         content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -554,8 +558,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun sortVideos(videos: List<VideoItem>): List<VideoItem> {
         val sorted = when (sortMode) {
+            0 -> videos.sortedBy { it.duration }
             1 -> videos.sortedBy { it.title.lowercase() }
-            2 -> videos.sortedBy { it.duration }
             else -> videos.sortedBy { it.dateModified }
         }
         return if (sortAscending) sorted else sorted.asReversed()
@@ -582,6 +586,7 @@ class MainActivity : AppCompatActivity() {
             val chosen = group.findViewById<android.widget.RadioButton>(checkedId)
             if (chosen != null) {
                 sortMode = chosen.tag as Int
+                sortPrefs.edit().putInt("sort_mode", sortMode).apply()
                 renderHome()
             }
         }
@@ -594,8 +599,18 @@ class MainActivity : AppCompatActivity() {
             ascending.alpha = if (sortAscending) 1f else .55f
             descending.alpha = if (sortAscending) .55f else 1f
         }
-        ascending.setOnClickListener { sortAscending = true; updateOrderButtons(); renderHome() }
-        descending.setOnClickListener { sortAscending = false; updateOrderButtons(); renderHome() }
+        ascending.setOnClickListener {
+            sortAscending = true
+            sortPrefs.edit().putBoolean("sort_ascending", true).apply()
+            updateOrderButtons()
+            renderHome()
+        }
+        descending.setOnClickListener {
+            sortAscending = false
+            sortPrefs.edit().putBoolean("sort_ascending", false).apply()
+            updateOrderButtons()
+            renderHome()
+        }
         orderRow.addView(ascending, LinearLayout.LayoutParams(0, -2, 1f))
         orderRow.addView(descending, LinearLayout.LayoutParams(0, -2, 1f))
         panel.addView(orderRow)
