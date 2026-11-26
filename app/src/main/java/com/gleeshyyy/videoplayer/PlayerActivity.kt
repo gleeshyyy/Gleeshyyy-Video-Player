@@ -82,12 +82,13 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var resumeBanner: LinearLayout
     private lateinit var subtitleDock: FrameLayout
     private lateinit var endModeButton: TextView
+    private lateinit var landscapeHeader: LinearLayout
     private var playlistUris: ArrayList<Uri> = arrayListOf()
     private var playlistIndex = 0
     private var resumePosition = 0L
     private var resumePromptVisible = false
     private val controlsHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    private val hideControlsRunnable = Runnable { if (isLandscapeNow()) bottomControls.visibility = View.GONE }
+    private val hideControlsRunnable = Runnable { if (isLandscapeNow()) { bottomControls.visibility = View.GONE; landscapeHeader.visibility = View.GONE } }
     private var videoIsLandscape = false
     private var videoKey: String = ""
     private val playbackSpeeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
@@ -136,13 +137,13 @@ class PlayerActivity : AppCompatActivity() {
         }
         val backButton = TextView(this).apply {
             text = "‹"
-            textSize = 34f
+            textSize = 38f
             gravity = Gravity.CENTER
             setTextColor(palette.text)
             contentDescription = "Back to video library"
             setOnClickListener { finish() }
         }
-        titleRow.addView(backButton, LinearLayout.LayoutParams(dpPlayer(38), dpPlayer(48)))
+        titleRow.addView(backButton, LinearLayout.LayoutParams(dpPlayer(46), dpPlayer(50)))
         val videoTitle = TextView(this).apply {
             text = title
             textSize = 17f
@@ -226,8 +227,12 @@ class PlayerActivity : AppCompatActivity() {
             override fun onDown(e: MotionEvent): Boolean = true
 
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                bottomControls.visibility = if (bottomControls.visibility == View.VISIBLE) View.GONE else View.VISIBLE
-                if (bottomControls.visibility == View.VISIBLE) scheduleControlsHide() else controlsHandler.removeCallbacks(hideControlsRunnable)
+                if (isLandscapeNow()) {
+                    val show = bottomControls.visibility != View.VISIBLE || landscapeHeader.visibility != View.VISIBLE
+                    bottomControls.visibility = if (show) View.VISIBLE else View.GONE
+                    landscapeHeader.visibility = if (show) View.VISIBLE else View.GONE
+                    if (show) scheduleControlsHide() else controlsHandler.removeCallbacks(hideControlsRunnable)
+                }
                 return true
             }
 
@@ -273,6 +278,30 @@ class PlayerActivity : AppCompatActivity() {
             setOnTouchListener { _, event -> handlePlaybackGesture(event) }
         }
         playbackArea.addView(gestureLayer, FrameLayout.LayoutParams(-1, -1))
+        landscapeHeader = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dpPlayer(10), dpPlayer(3), dpPlayer(16), dpPlayer(3))
+            setBackgroundColor(0x55000000)
+            visibility = View.GONE
+        }
+        landscapeHeader.addView(TextView(this).apply {
+            text = "‹"
+            textSize = 38f
+            gravity = Gravity.CENTER
+            setTextColor(android.graphics.Color.WHITE)
+            contentDescription = "Back to video library"
+            setOnClickListener { finish() }
+        }, LinearLayout.LayoutParams(dpPlayer(48), dpPlayer(48)))
+        landscapeHeader.addView(TextView(this).apply {
+            text = title
+            textSize = 16f
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setTextColor(android.graphics.Color.WHITE)
+            gravity = Gravity.CENTER_VERTICAL
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        playbackArea.addView(landscapeHeader, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
         val feedback = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -396,14 +425,15 @@ class PlayerActivity : AppCompatActivity() {
         controlsBar.addView(controlButton("⏭", "Next video") {
             player?.seekToNextMediaItem()
         }, LinearLayout.LayoutParams(0, -2, 1f))
-        endModeButton = controlButton("NEXT", "Change what happens when video ends") { showEndBehaviorOptions() }
-        endModeButton.textSize = 12f
+        endModeButton = controlButton("🔁", "Play next video when finished") { showEndBehaviorOptions() }
+        endModeButton.textSize = 23f
         endModeButton.setTextColor(palette.accent)
         controlsBar.addView(endModeButton, LinearLayout.LayoutParams(0, -2, 1f))
         val timeline = LinearLayout(this).apply {
+            tag = "timeline_controls"
             orientation = LinearLayout.VERTICAL
             setPadding(dpPlayer(14), dpPlayer(2), dpPlayer(14), dpPlayer(2))
-            setBackgroundColor(palette.surface)
+            setBackgroundColor(android.graphics.Color.TRANSPARENT)
         }
         val timeRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -444,7 +474,7 @@ class PlayerActivity : AppCompatActivity() {
         timeline.addView(progressSeekBar, LinearLayout.LayoutParams(-1, dpPlayer(25)))
         bottomControls = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(palette.surface)
+            setBackgroundColor(android.graphics.Color.TRANSPARENT)
             addView(timeline, LinearLayout.LayoutParams(-1, -2))
             addView(controlsBar, LinearLayout.LayoutParams(-1, -2))
         }
@@ -931,22 +961,25 @@ class PlayerActivity : AppCompatActivity() {
             resumeBanner.visibility = View.GONE
             subtitleDock.visibility = View.GONE
             playbackArea.addView(bottomControls, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
-            bottomControls.setBackgroundColor(0x55000000)
-            controlsBar.setBackgroundColor(0x55000000)
-            bottomControls.findViewWithTag<View>("timeline_controls")?.setBackgroundColor(0x55000000)
+            bottomControls.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            controlsBar.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            bottomControls.findViewWithTag<View>("timeline_controls")?.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            landscapeHeader.visibility = View.VISIBLE
             for (i in 0 until controlsBar.childCount) (controlsBar.getChildAt(i) as? TextView)?.setTextColor(android.graphics.Color.WHITE)
             endModeButton.setTextColor(0xFF65E58B.toInt())
             bottomControls.visibility = View.VISIBLE
+            landscapeHeader.visibility = View.VISIBLE
             scheduleControlsHide()
         } else {
             controlsHandler.removeCallbacks(hideControlsRunnable)
             playbackArea.removeView(bottomControls)
+            landscapeHeader.visibility = View.GONE
             playerHeader.visibility = View.VISIBLE
             resumeBanner.visibility = if (resumePromptVisible) View.VISIBLE else View.GONE
             subtitleDock.visibility = View.VISIBLE
-            bottomControls.setBackgroundColor(palette.surface)
-            controlsBar.setBackgroundColor(palette.surface)
-            bottomControls.findViewWithTag<View>("timeline_controls")?.setBackgroundColor(palette.surface)
+            bottomControls.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            controlsBar.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            bottomControls.findViewWithTag<View>("timeline_controls")?.setBackgroundColor(android.graphics.Color.TRANSPARENT)
             for (i in 0 until controlsBar.childCount) (controlsBar.getChildAt(i) as? TextView)?.setTextColor(palette.text)
             endModeButton.setTextColor(palette.accent)
             rootLayout.addView(bottomControls, LinearLayout.LayoutParams(-1, -2))
@@ -956,7 +989,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun scheduleControlsHide() {
         controlsHandler.removeCallbacks(hideControlsRunnable)
-        if (isLandscapeNow()) controlsHandler.postDelayed(hideControlsRunnable, 5000L)
+        if (isLandscapeNow()) controlsHandler.postDelayed(hideControlsRunnable, 300000L)
     }
 
     private fun showEndBehaviorOptions() {
@@ -974,7 +1007,12 @@ class PlayerActivity : AppCompatActivity() {
     private fun applyEndBehavior(reload: Boolean) {
         val current = player ?: return
         val mode = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getInt("playback_end_behavior", 0).coerceIn(0, 2)
-        endModeButton.text = when (mode) { 1 -> "REPEAT"; 2 -> "STOP"; else -> "NEXT" }
+        endModeButton.text = when (mode) { 1 -> "🔂"; 2 -> "🔁̸"; else -> "🔁" }
+        endModeButton.contentDescription = when (mode) {
+            1 -> "Repeat current video when finished"
+            2 -> "Stop and return to list when finished"
+            else -> "Play next video when finished"
+        }
         current.repeatMode = if (mode == 1) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
         if (reload) {
             val position = current.currentPosition.coerceAtLeast(0L)
