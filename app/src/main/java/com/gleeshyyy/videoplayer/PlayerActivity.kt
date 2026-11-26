@@ -24,6 +24,8 @@ class PlayerActivity : AppCompatActivity() {
     private val playbackSpeeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
     private var playbackSpeedIndex = 2
     private lateinit var gestureLayer: View
+    private lateinit var gestureDetector: GestureDetector
+    private var gestureVolume = 0f
     private var gestureMode = 0
     private var lastGestureX = 0f
     private var lastGestureY = 0f
@@ -81,9 +83,31 @@ class PlayerActivity : AppCompatActivity() {
         }
         val playbackArea = FrameLayout(this)
         playbackArea.addView(playerView, FrameLayout.LayoutParams(-1, -1))
+        gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent): Boolean = true
+
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                if (playerView.isControllerFullyVisible) playerView.hideController()
+                else playerView.showController()
+                return true
+            }
+
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                val current = player?.currentPosition ?: 0L
+                val duration = player?.duration ?: 0L
+                if (duration > 0L) {
+                    val forward = e.x >= gestureLayer.width / 2f
+                    player?.seekTo((current + if (forward) 10_000L else -10_000L).coerceIn(0L, duration))
+                }
+                return true
+            }
+        })
         gestureLayer = View(this).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            setOnTouchListener { _, event -> handlePlaybackGesture(event) }
+            setOnTouchListener { _, event ->
+                if (playerView.isControllerFullyVisible) false
+                else handlePlaybackGesture(event)
+            }
         }
         playbackArea.addView(gestureLayer, FrameLayout.LayoutParams(-1, -1))
         root.addView(playbackArea, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -106,11 +130,14 @@ class PlayerActivity : AppCompatActivity() {
     private fun handlePlaybackGesture(event: MotionEvent): Boolean {
         val width = gestureLayer.width.coerceAtLeast(1)
         val height = gestureLayer.height.coerceAtLeast(1)
+        gestureDetector.onTouchEvent(event)
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 lastGestureX = event.x
                 lastGestureY = event.y
                 gestureMode = 0
+                gestureVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() /
+                    audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
@@ -135,11 +162,10 @@ class PlayerActivity : AppCompatActivity() {
                     }
                     3 -> {
                         val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                        val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-                        val change = (-dy / height * max).toInt()
+                        gestureVolume = (gestureVolume - dy / height).coerceIn(0f, 1f)
                         audioManager.setStreamVolume(
                             AudioManager.STREAM_MUSIC,
-                            (current + change).coerceIn(0, max),
+                            (gestureVolume * max).toInt().coerceIn(0, max),
                             0
                         )
                     }
@@ -149,11 +175,6 @@ class PlayerActivity : AppCompatActivity() {
                 return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                if (gestureMode == 0 && event.actionMasked == MotionEvent.ACTION_UP) {
-                    playerView.performClick()
-                    if (playerView.isControllerFullyVisible) playerView.hideController()
-                    else playerView.showController()
-                }
                 gestureMode = 0
                 return true
             }
