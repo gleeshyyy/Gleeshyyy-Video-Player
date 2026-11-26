@@ -345,6 +345,8 @@ class PlayerActivity : AppCompatActivity() {
             setOnClickListener {
                 resizeModeIndex = (resizeModeIndex + 1) % resizeModes.size
                 playerView.resizeMode = resizeModes[resizeModeIndex]
+                if (getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getBoolean("remember_aspect", true))
+                    getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).edit().putInt("last_aspect", resizeModeIndex).apply()
                 text = resizeLabels[resizeModeIndex]
             }
         }, LinearLayout.LayoutParams(dpPlayer(42), dpPlayer(42)))
@@ -1127,8 +1129,10 @@ class PlayerActivity : AppCompatActivity() {
             longPressSpeedActive = false
         }
         savePosition()
-        player?.pause()
-        if (::playerView.isInitialized) playerView.onPause()
+        if (!isInPictureInPictureMode) {
+            player?.pause()
+            if (::playerView.isInitialized) playerView.onPause()
+        }
         super.onPause()
     }
 
