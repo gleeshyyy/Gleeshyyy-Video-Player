@@ -860,7 +860,7 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         sectionLabel("SUBTITLES")
-        rowAction("Current subtitles", "Choose None or an available subtitle track") {
+        rowAction("Current subtitles", currentSubtitleSummary()) {
             showCurrentSubtitleChoices()
         }
         rowAction("Open file", externalSubtitleName ?: "Add an external .srt subtitle file") {
@@ -927,6 +927,23 @@ class PlayerActivity : AppCompatActivity() {
             playbackArea.addView(panel, FrameLayout.LayoutParams(-1, dpPlayer(430), Gravity.BOTTOM))
         }
         playbackArea.bringChildToFront(panel)
+    }
+
+    private fun currentSubtitleSummary(): String {
+        val current = player ?: return externalSubtitleName ?: "None"
+        current.currentTracks.groups.forEach { group ->
+            if (group.type != C.TRACK_TYPE_TEXT) return@forEach
+            for (index in 0 until group.length) {
+                if (!group.isTrackSelected(index)) continue
+                val format = group.getTrackFormat(index)
+                if (externalSubtitleName != null && format.sampleMimeType == MimeTypes.APPLICATION_SUBRIP)
+                    return externalSubtitleName!!
+                return format.label?.takeIf { it.isNotBlank() }
+                    ?: format.language?.takeIf { it.isNotBlank() && it != "und" }
+                    ?: "Embedded subtitle"
+            }
+        }
+        return "None"
     }
 
     private fun showCurrentSubtitleChoices() {
