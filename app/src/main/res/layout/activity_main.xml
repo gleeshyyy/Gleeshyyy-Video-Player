@@ -73,8 +73,7 @@
             android:padding="24dp"
             android:text="▶\n\nChoose a video to start watching"
             android:textColor="#82919C"
-            android:textSize="16sp"
-            android:gravity="center" />
+            android:textSize="16sp" />
     </FrameLayout>
 
     <TextView
