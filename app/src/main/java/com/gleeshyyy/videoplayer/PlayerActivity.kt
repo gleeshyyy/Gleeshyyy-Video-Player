@@ -1472,28 +1472,9 @@ class PlayerActivity : AppCompatActivity() {
             .edit().putLong("position_$videoKey", savedPosition).apply()
     }
 
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        val settings = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
-        if (settings.getBoolean("auto_miniplayer", false) && android.os.Build.VERSION.SDK_INT >= 26) {
-            try {
-                val ratio = android.util.Rational(playerView.width.coerceAtLeast(16), playerView.height.coerceAtLeast(9))
-                enterPictureInPictureMode(android.app.PictureInPictureParams.Builder().setAspectRatio(ratio).build())
-            } catch (_: Exception) { }
-        }
-    }
-
     override fun onPause() {
-        controlsHandler.removeCallbacks(hideControlsRunnable)
-        if (longPressSpeedActive) {
-            player?.setPlaybackSpeed(1.0f)
-            longPressSpeedActive = false
-        }
-        savePosition()
-        if (!isInPictureInPictureMode) {
-            player?.pause()
-            if (::playerView.isInitialized) playerView.onPause()
-        }
+        player?.pause()
+        if (::playerView.isInitialized) playerView.onPause()
         super.onPause()
     }
 
