@@ -227,7 +227,7 @@ class PlayerActivity : AppCompatActivity() {
                             val target = (current - 10_000L).coerceIn(0L, duration)
                             val moved = current - target
                             player?.seekTo(target)
-                            if (moved > 0L) showGestureFeedback("−\${(moved / 1000L).coerceAtLeast(1L)} seconds", 0, false)
+                            if (moved > 0L) showGestureFeedback("−${(moved / 1000L).coerceAtLeast(1L)} seconds", 0, false)
                         }
                     }
                     zone > 2f / 3f -> {
@@ -237,7 +237,7 @@ class PlayerActivity : AppCompatActivity() {
                             val target = (current + 10_000L).coerceIn(0L, duration)
                             val moved = target - current
                             player?.seekTo(target)
-                            if (moved > 0L) showGestureFeedback("+\${(moved / 1000L).coerceAtLeast(1L)} seconds", 100, false)
+                            if (moved > 0L) showGestureFeedback("+${(moved / 1000L).coerceAtLeast(1L)} seconds", 100, false)
                         }
                     }
                     else -> {
