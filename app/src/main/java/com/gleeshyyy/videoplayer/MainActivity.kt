@@ -346,7 +346,8 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        if (getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getBoolean("show_history", true)) {\n            sectionTitle("Recently played")
+        if (getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getBoolean("show_history", true)) {
+            sectionTitle("Recently played")
         val recentIds = recentPrefs.getString("recent", "[]") ?: "[]"
         val recentUris = try { JSONArray(recentIds).let { arr -> (0 until arr.length()).map { arr.getString(it) } } } catch (_: Exception) { emptyList() }
         val recent = recentUris.mapNotNull { uri -> allVideos.firstOrNull { it.uri.toString() == uri } }.distinctBy { it.uri }.take(10)
