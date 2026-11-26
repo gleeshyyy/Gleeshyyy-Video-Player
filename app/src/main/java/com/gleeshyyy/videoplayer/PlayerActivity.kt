@@ -304,6 +304,7 @@ class PlayerActivity : AppCompatActivity() {
             }
 
             override fun onLongPress(e: MotionEvent) {
+                gestureLayer.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
                 val settings = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
                 if (settings.getBoolean("long_press_vibration", true)) {
                     try {
