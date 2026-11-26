@@ -36,6 +36,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var content: LinearLayout
     private var allVideos: List<VideoItem> = emptyList()
     private var selectedFolder: String? = null
+    private var sortMode = 0
+    private val sortLabels = listOf("Recent", "A–Z", "Longest")
     private val recentPrefs by lazy { getSharedPreferences("gleeshplayer_history", MODE_PRIVATE) }
 
     private val permissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
@@ -167,6 +169,17 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(12), dp(8), dp(12), dp(8))
         }
         header.addView(brand, LinearLayout.LayoutParams(0, -2, 1f))
+        val sort = TextView(this).apply {
+            text = "↕ ${sortLabels[sortMode]}"
+            textSize = 12f
+            setTextColor(0xFF20D66B.toInt())
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            setOnClickListener {
+                sortMode = (sortMode + 1) % sortLabels.size
+                renderHome()
+            }
+        }
+        header.addView(sort)
         val refresh = TextView(this).apply {
             text = "↻"
             textSize = 27f
@@ -183,7 +196,7 @@ class MainActivity : AppCompatActivity() {
             }
             content.addView(back)
             content.addView(text(folder, 26f, 0xFFF1F5F7.toInt(), true))
-            val videos = allVideos.filter { it.folder == folder }
+            val videos = sortVideos(allVideos.filter { it.folder == folder })
             content.addView(text("${videos.size} videos", 13f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(5), 0, dp(16)) })
             videos.forEach { addVideoRow(it) }
             return
@@ -240,7 +253,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         sectionTitle("All videos")
-        allVideos.take(50).forEach { addVideoRow(it) }
+        sortVideos(allVideos).forEach { addVideoRow(it) }
+    }
+
+    private fun sortVideos(videos: List<VideoItem>): List<VideoItem> = when (sortMode) {
+        1 -> videos.sortedBy { it.title.lowercase() }
+        2 -> videos.sortedByDescending { it.duration }
+        else -> videos.sortedByDescending { it.dateAdded }
     }
 
     private fun sectionTitle(value: String) {
