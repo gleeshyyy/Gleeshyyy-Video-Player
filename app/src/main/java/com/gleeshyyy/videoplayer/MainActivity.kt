@@ -61,6 +61,7 @@ class MainActivity : AppCompatActivity() {
     private var sortAscending = false
     private val sortPrefs by lazy { getSharedPreferences("gleeshplayer_sort", MODE_PRIVATE) }
     private var searchQuery = ""
+    private var displayedVideoLimit = 40
     private var libraryLoaded = false
     private var scanInProgress = false
     private val sortLabels = listOf("Longest", "A–Z", "Date modified")
@@ -426,15 +427,6 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(6), dp(4), dp(6), dp(4))
         }
         header.addView(brand, LinearLayout.LayoutParams(0, -2, 1f))
-        val sort = TextView(this).apply {
-            text = "☷"
-            textSize = 25f
-            setTextColor(palette.accent)
-            contentDescription = "Sort videos"
-            setPadding(dp(12), dp(4), dp(8), dp(4))
-            setOnClickListener { showSortOptions() }
-        }
-        header.addView(sort)
         val settings = TextView(this).apply {
             text = "⚙"
             textSize = 24f
@@ -541,7 +533,20 @@ class MainActivity : AppCompatActivity() {
             content.addView(videoHeading)
             val videos = sortVideos(allVideos.filter { searchQuery.isBlank() || it.title.contains(searchQuery, true) || it.folder.contains(searchQuery, true) })
             if (videos.isEmpty()) content.addView(text("No videos found.", 14f, palette.muted).apply { setPadding(0, dp(8), 0, dp(18)) })
-            else videos.forEach { addVideoRow(it) }
+            else {
+                videos.take(displayedVideoLimit).forEach { addVideoRow(it) }
+                if (videos.size > displayedVideoLimit) {
+                    val remaining = videos.size - displayedVideoLimit
+                    content.addView(android.widget.Button(this).apply {
+                        text = "Load more ($remaining remaining)"
+                        isAllCaps = false
+                        setOnClickListener {
+                            displayedVideoLimit = (displayedVideoLimit + 40).coerceAtMost(videos.size)
+                            renderHome()
+                        }
+                    }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+                }
+            }
             return
         }
 
@@ -549,7 +554,21 @@ class MainActivity : AppCompatActivity() {
 
 
         val folders = allVideos.groupBy { it.folderPath }.toSortedMap(String.CASE_INSENSITIVE_ORDER)
-        sectionTitle("Folders · ${folders.size}")
+        val folderHeading = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(15), 0, dp(8))
+        }
+        folderHeading.addView(text("Folders · ${folders.size}", 17f, palette.text, true), LinearLayout.LayoutParams(0, -2, 1f))
+        folderHeading.addView(TextView(this).apply {
+            text = "↕"
+            textSize = 25f
+            setTextColor(palette.accent)
+            contentDescription = "Sort folders and videos"
+            setPadding(dp(12), 0, dp(5), 0)
+            setOnClickListener { showSortOptions() }
+        })
+        content.addView(folderHeading)
         if (folders.isEmpty()) {
             content.addView(text("No videos found. Allow video access or add videos to your device.", 14f, palette.muted).apply { setPadding(0, dp(8), 0, dp(18)) })
         } else {
@@ -570,7 +589,15 @@ class MainActivity : AppCompatActivity() {
                 labels.addView(text(parentPath, 10f, palette.muted))
                 labels.addView(text("${videos.size} videos", 11f, palette.muted))
                 row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
-                row.addView(text("›", 25f, palette.muted))
+                row.addView(TextView(this).apply {
+                    text = "⋮"
+                    textSize = 25f
+                    gravity = Gravity.CENTER
+                    setTextColor(palette.muted)
+                    contentDescription = "Folder options"
+                    setPadding(dp(12), dp(8), dp(4), dp(8))
+                    setOnClickListener { showFolderOptions(path, videos) }
+                })
                 val params = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) }
                 content.addView(row, params)
             }
@@ -802,12 +829,12 @@ class MainActivity : AppCompatActivity() {
                     setPadding(0, 0, dp(12), 0)
                     setOnClickListener { openVideo(video) }
                 }
-                card.addView(thumbnail(video, dp(148), dp(88)))
+                card.addView(thumbnail(video, dp(104), dp(62)))
                 card.addView(text(video.title, 12f, palette.text, true).apply {
                     maxLines = 1
                     ellipsize = android.text.TextUtils.TruncateAt.END
                 })
-                strip.addView(card, LinearLayout.LayoutParams(dp(148), -2))
+                strip.addView(card, LinearLayout.LayoutParams(dp(104), -2))
             }
             content.addView(horizontal)
         }
@@ -837,6 +864,15 @@ class MainActivity : AppCompatActivity() {
         details.add(video.folder)
         labels.addView(text(details.joinToString("  •  "), 11f, palette.muted).apply { setPadding(0, dp(5), 0, 0) })
         row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
+        row.addView(TextView(this).apply {
+            text = "⋮"
+            textSize = 25f
+            gravity = Gravity.CENTER
+            setTextColor(palette.muted)
+            contentDescription = "Video options"
+            setPadding(dp(12), dp(8), dp(2), dp(8))
+            setOnClickListener { showVideoOptions(video) }
+        })
         content.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
     }
 
