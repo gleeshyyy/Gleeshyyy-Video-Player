@@ -1,6 +1,10 @@
 package com.gleeshyyy.videoplayer
 
 import android.os.Bundle
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import android.provider.MediaStore
 import android.view.Gravity
 import android.widget.LinearLayout
 import android.content.res.ColorStateList
@@ -68,8 +72,57 @@ class SettingsActivity : AppCompatActivity() {
             "general" -> showGeneral()
             "video" -> showVideo()
             "theme" -> showPlaceholder("Theme", "Theme options will be added in a future update.")
-            "manage" -> showPlaceholder("Manage Scan list", "Folder scanning controls will be added here.")
+            "manage" -> showManageScanList()
             "subtitles" -> showPlaceholder("Subtitles", "Subtitle settings will be added in a future update.")
+        }
+    }
+
+    private fun showManageScanList() {
+        beginPage("Manage Scan list", true)
+        body.addView(label("Choose which folders appear in your video library. Disabled folders are excluded from GleeshPlayer scan.", 13f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(18), 0, dp(18)) })
+        val permission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_VIDEO else Manifest.permission.READ_EXTERNAL_STORAGE
+        if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
+            body.addView(label("Allow video access on the home screen to manage scanned folders.", 14f, 0xFFF1F5F7.toInt()).apply { setPadding(dp(14), dp(16), dp(14), dp(16)); setBackgroundColor(0xFF111A22.toInt()) })
+            return
+        }
+        val folders = linkedMapOf<String, Pair<String, Int>>()
+        try {
+            contentResolver.query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, arrayOf(MediaStore.Video.Media.RELATIVE_PATH), null, null, null)?.use { cursor ->
+                val column = cursor.getColumnIndex(MediaStore.Video.Media.RELATIVE_PATH)
+                while (cursor.moveToNext()) {
+                    val path = if (column >= 0) cursor.getString(column).orEmpty() else "Videos/"
+                    val folderPath = path.ifBlank { "Internal storage/" }
+                    val name = folderPath.trimEnd('/').substringAfterLast('/').ifBlank { "Internal storage" }
+                    val previous = folders[folderPath]
+                    folders[folderPath] = name to ((previous?.second ?: 0) + 1)
+                }
+            }
+        } catch (_: SecurityException) { }
+        if (folders.isEmpty()) {
+            body.addView(label("No video folders found on this device.", 14f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(10), 0, 0) })
+            return
+        }
+        val excluded = prefs.getStringSet("excluded_scan_folders", emptySet())?.toMutableSet() ?: mutableSetOf()
+        body.addView(label(folders.size.toString() + " folders found", 12f, 0xFF20D66B.toInt(), true).apply { setPadding(0, 0, 0, dp(12)) })
+        folders.toSortedMap(String.CASE_INSENSITIVE_ORDER).forEach { (path, details) ->
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(14), dp(13), dp(12), dp(13)); setBackgroundColor(0xFF111A22.toInt()) }
+            val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            labels.addView(label(details.first, 15f, 0xFFF1F5F7.toInt(), true))
+            labels.addView(label(details.second.toString() + " videos", 12f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(4), 0, 0) })
+            row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
+            val toggle = SwitchCompat(this).apply {
+                isChecked = path !in excluded
+                showText = false
+                splitTrack = false
+                thumbTintList = ColorStateList.valueOf(0xFFF1F5F7.toInt())
+                trackTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(0xFF20D66B.toInt(), 0xFF46515A.toInt()))
+                setOnCheckedChangeListener { _, enabled ->
+                    if (enabled) excluded.remove(path) else excluded.add(path)
+                    prefs.edit().putStringSet("excluded_scan_folders", excluded.toSet()).putBoolean("scan_settings_changed", true).apply()
+                }
+            }
+            row.addView(toggle)
+            body.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
         }
     }
 
