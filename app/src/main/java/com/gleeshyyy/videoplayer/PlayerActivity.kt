@@ -183,6 +183,7 @@ class PlayerActivity : AppCompatActivity() {
             }
 
             override fun onLongPress(e: MotionEvent) {
+                if (gestureMode == 4) return
                 player?.setPlaybackSpeed(longPressSpeed)
                 longPressSpeedActive = true
                 showGestureFeedback("${longPressSpeed.toInt()}× playing…", 100, true)
