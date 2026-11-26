@@ -50,10 +50,10 @@ object ThemeManager {
         val dark=when(mode) {
             "light" -> false
             "auto" -> (context.resources.configuration.uiMode and 0x30) != 0x10
-            "picture" -> pictureIsDark(context,p.getString("theme_picture",null))
+            "picture" -> true // Keep palette generation fast; wallpaper analysis belongs off the UI thread.
             else -> true
         }
-        val accent=if(mode=="picture") pictureAccent(context,p.getString("theme_picture",null)) else Color.rgb(32,214,107)
+        val accent=Color.rgb(32,214,107)
         return if(dark) PlayerPalette(Color.rgb(8,13,18),Color.rgb(17,26,34),Color.rgb(31,43,53),Color.rgb(241,245,247),Color.rgb(153,166,175),accent,Color.WHITE,true)
         else PlayerPalette(Color.rgb(246,248,249),Color.WHITE,Color.rgb(231,236,239),Color.rgb(25,32,38),Color.rgb(91,103,112),accent,Color.rgb(18,27,34),false)
     }
