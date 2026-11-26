@@ -11,6 +11,12 @@ import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.SeekBar
+import android.widget.Button
+import android.graphics.Typeface
+import android.util.TypedValue
+import androidx.appcompat.app.AlertDialog
+import androidx.media3.ui.CaptionStyleCompat
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
@@ -77,6 +83,15 @@ class PlayerActivity : AppCompatActivity() {
             }
         }
         heading.addView(speedButton)
+        val subtitleButton = TextView(this).apply {
+            text = "CC"
+            textSize = 14f
+            setTextColor(palette.accent)
+            setPadding(14, 10, 0, 10)
+            contentDescription = "Subtitle customization"
+            setOnClickListener { showSubtitleCustomization() }
+        }
+        heading.addView(subtitleButton)
         root.addView(heading)
         playerView = PlayerView(this).apply {
             useController = true
@@ -143,10 +158,81 @@ class PlayerActivity : AppCompatActivity() {
             playerView.player = it
             it.setMediaItem(MediaItem.fromUri(uri), resumeAt)
             it.prepare()
+            applySubtitleStyle(
+                if (subtitleRemembered()) subtitlePrefs().getFloat("subtitle_size", 22f) else 22f,
+                if (subtitleRemembered()) subtitlePrefs().getInt("subtitle_color", android.graphics.Color.WHITE) else android.graphics.Color.WHITE,
+                if (subtitleRemembered()) subtitlePrefs().getInt("subtitle_position", 18) else 18,
+                false
+            )
             it.play()
         }
     }
 
+
+    private fun subtitlePrefs() = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+
+    private fun subtitleRemembered(): Boolean = subtitlePrefs().getBoolean("remember_subtitles", true)
+
+    private fun applySubtitleStyle(size: Float, color: Int, position: Int, save: Boolean) {
+        val subtitleView = playerView.subtitleView ?: return
+        subtitleView.setFixedTextSize(TypedValue.COMPLEX_UNIT_SP, size)
+        subtitleView.setStyle(CaptionStyleCompat(color, android.graphics.Color.TRANSPARENT,
+            android.graphics.Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_OUTLINE,
+            android.graphics.Color.BLACK, Typeface.DEFAULT_BOLD))
+        subtitleView.setBottomPaddingFraction(0.02f + (position.coerceIn(0, 100) / 100f) * 0.33f)
+        if (save && subtitleRemembered()) {
+            subtitlePrefs().edit().putFloat("subtitle_size", size).putInt("subtitle_color", color)
+                .putInt("subtitle_position", position).apply()
+        }
+    }
+
+    private fun showSubtitleCustomization() {
+        val prefs = subtitlePrefs()
+        val remembered = subtitleRemembered()
+        var currentSize = if (remembered) prefs.getFloat("subtitle_size", 22f) else 22f
+        var currentColor = if (remembered) prefs.getInt("subtitle_color", android.graphics.Color.WHITE) else android.graphics.Color.WHITE
+        var currentPosition = if (remembered) prefs.getInt("subtitle_position", 18) else 18
+        val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dpPlayer(22), dpPlayer(8), dpPlayer(22), dpPlayer(4)) }
+        fun caption(text: String) {
+            panel.addView(TextView(this).apply { this.text = text; textSize = 13f; setTextColor(palette.muted); setPadding(0, dpPlayer(10), 0, dpPlayer(4)) })
+        }
+        fun slider(title: String, initial: Int, maxValue: Int, changed: (Int) -> Unit) {
+            caption(title)
+            panel.addView(SeekBar(this).apply {
+                max = maxValue
+                progress = initial.coerceIn(0, maxValue)
+                setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(bar: SeekBar?, value: Int, fromUser: Boolean) { if (fromUser) changed(value) }
+                    override fun onStartTrackingTouch(bar: SeekBar?) {}
+                    override fun onStopTrackingTouch(bar: SeekBar?) {}
+                })
+            })
+        }
+        slider("Subtitle size", ((currentSize - 12f) / 1.5f).toInt(), 16) { value ->
+            currentSize = 12f + value * 1.5f
+            applySubtitleStyle(currentSize, currentColor, currentPosition, true)
+        }
+        caption("Subtitle color")
+        val colors = listOf("White" to android.graphics.Color.WHITE, "Yellow" to 0xFFFFFF00.toInt(), "Cyan" to 0xFF00E5FF.toInt(), "Green" to 0xFF20D66B.toInt())
+        val colorRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        colors.forEach { (name, value) ->
+            colorRow.addView(Button(this).apply {
+                text = name
+                textSize = 10f
+                setTextColor(if (value == android.graphics.Color.WHITE || value == 0xFFFFFF00.toInt()) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+                backgroundTintList = android.content.res.ColorStateList.valueOf(value)
+                setOnClickListener { currentColor = value; applySubtitleStyle(currentSize, currentColor, currentPosition, true) }
+            }, LinearLayout.LayoutParams(0, dpPlayer(42), 1f).apply { marginEnd = dpPlayer(4) })
+        }
+        panel.addView(colorRow)
+        slider("Vertical position (higher to lower)", currentPosition, 100) { value ->
+            currentPosition = value
+            applySubtitleStyle(currentSize, currentColor, currentPosition, true)
+        }
+        AlertDialog.Builder(this).setTitle("Subtitle customization").setView(panel).setPositiveButton("Done", null).show()
+    }
+
+    private fun dpPlayer(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private fun handlePlaybackGesture(event: MotionEvent): Boolean {
         val width = gestureLayer.width.coerceAtLeast(1)
