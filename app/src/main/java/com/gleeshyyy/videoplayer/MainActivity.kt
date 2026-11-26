@@ -369,7 +369,9 @@ class MainActivity : AppCompatActivity() {
             content.addView(horizontal)
         }
 
-        }\n\n        sectionTitle("Folders")
+        }
+
+        sectionTitle("Folders")
         val folders = allVideos.groupBy { it.folderPath }.toSortedMap(String.CASE_INSENSITIVE_ORDER)
         if (folders.isEmpty()) {
             content.addView(text("No videos found. Allow video access or add videos to your device.", 14f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(8), 0, dp(18)) })
