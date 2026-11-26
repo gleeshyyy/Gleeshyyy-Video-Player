@@ -948,7 +948,7 @@ class MainActivity : AppCompatActivity() {
             putExtra("title", video.title)
             putParcelableArrayListExtra("playlist_uris", ArrayList(ordered.map { it.uri }))
             putStringArrayListExtra("playlist_titles", ArrayList(ordered.map { it.title }))
-            putIntExtra("playlist_index", safeIndex)
+            putExtra("playlist_index", safeIndex)
         })
     }
 
