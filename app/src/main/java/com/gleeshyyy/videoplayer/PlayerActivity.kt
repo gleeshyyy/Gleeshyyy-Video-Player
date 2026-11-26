@@ -790,12 +790,19 @@ class PlayerActivity : AppCompatActivity() {
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dpPlayer(18), dpPlayer(12), dpPlayer(18), dpPlayer(16))
-            setBackgroundColor(if (palette.isDark) 0xF0182028.toInt() else 0xF0F5F7F8.toInt())
+            setBackgroundColor(if (palette.isDark) 0xB8182028.toInt() else 0xB8F5F7F8.toInt())
             tag = "subtitle_settings_panel"
             elevation = dpPlayer(14).toFloat()
         }
+        val wasHeaderVisible = landscapeHeader.visibility == View.VISIBLE
+        val wasControlsVisible = bottomControls.visibility == View.VISIBLE
         fun removePanel() {
             (panel.parent as? android.view.ViewGroup)?.removeView(panel)
+            if (isLandscapeNow()) {
+                landscapeHeader.visibility = if (wasHeaderVisible) View.VISIBLE else View.GONE
+                bottomControls.visibility = if (wasControlsVisible) View.VISIBLE else View.GONE
+                if (wasHeaderVisible || wasControlsVisible) scheduleControlsHide()
+            }
         }
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -918,15 +925,31 @@ class PlayerActivity : AppCompatActivity() {
         rowAction("Subtitle delay", String.format(java.util.Locale.US, "%+.1fs", subtitleDelayMs / 1000f)) {
             showSubtitleDelayController()
         }
+        val scrollPanel = android.widget.ScrollView(this).apply {
+            isFillViewport = true
+            isVerticalScrollBarEnabled = true
+            clipToPadding = false
+            setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            isClickable = true
+            isFocusable = true
+            addView(panel, android.widget.ScrollView.LayoutParams(-1, -2))
+            setOnTouchListener { view, event ->
+                if (event.actionMasked == MotionEvent.ACTION_DOWN || event.actionMasked == MotionEvent.ACTION_MOVE)
+                    view.parent?.requestDisallowInterceptTouchEvent(true)
+                false
+            }
+        }
         if (isLandscapeNow()) {
-            playbackArea.addView(panel, FrameLayout.LayoutParams(dpPlayer(330), -1, Gravity.RIGHT or Gravity.CENTER_VERTICAL).apply {
+            landscapeHeader.visibility = View.GONE
+            bottomControls.visibility = View.GONE
+            playbackArea.addView(scrollPanel, FrameLayout.LayoutParams(dpPlayer(330), -1, Gravity.RIGHT or Gravity.CENTER_VERTICAL).apply {
                 topMargin = dpPlayer(4)
                 bottomMargin = dpPlayer(4)
             })
         } else {
-            playbackArea.addView(panel, FrameLayout.LayoutParams(-1, dpPlayer(430), Gravity.BOTTOM))
+            playbackArea.addView(scrollPanel, FrameLayout.LayoutParams(-1, dpPlayer(430), Gravity.BOTTOM))
         }
-        playbackArea.bringChildToFront(panel)
+        playbackArea.bringChildToFront(scrollPanel)
     }
 
     private fun currentSubtitleSummary(): String {
@@ -936,37 +959,43 @@ class PlayerActivity : AppCompatActivity() {
             for (index in 0 until group.length) {
                 if (!group.isTrackSelected(index)) continue
                 val format = group.getTrackFormat(index)
-                if (externalSubtitleName != null && format.sampleMimeType == MimeTypes.APPLICATION_SUBRIP)
-                    return externalSubtitleName!!
+                if (externalSubtitleUri != null && format.sampleMimeType == MimeTypes.APPLICATION_SUBRIP)
+                    return externalSubtitleName ?: "External subtitle"
                 return format.label?.takeIf { it.isNotBlank() }
                     ?: format.language?.takeIf { it.isNotBlank() && it != "und" }
                     ?: "Embedded subtitle"
             }
         }
-        return "None"
+        return if (externalSubtitleUri != null) externalSubtitleName ?: "External subtitle" else "None"
     }
 
     private fun showCurrentSubtitleChoices() {
         val currentPlayer = player ?: return
         val choices = mutableListOf("None")
         val selections = mutableListOf<Pair<androidx.media3.common.TrackGroup, Int>?>(null)
+        var selectedChoice = 0
         currentPlayer.currentTracks.groups.forEach { group ->
             if (group.type != C.TRACK_TYPE_TEXT) return@forEach
             for (index in 0 until group.length) {
                 if (!group.isTrackSupported(index)) continue
                 val format = group.getTrackFormat(index)
-                val label = format.label?.takeIf { it.isNotBlank() }
-                    ?: format.language?.takeIf { it.isNotBlank() && it != "und" }
-                    ?: "Subtitle ${selections.size}"
-                val name = if (externalSubtitleName != null && format.sampleMimeType == MimeTypes.APPLICATION_SUBRIP)
-                    "$label — ${externalSubtitleName}" else label
-                choices.add(name)
+                val isExternal = externalSubtitleUri != null && format.sampleMimeType == MimeTypes.APPLICATION_SUBRIP
+                val label = if (isExternal) externalSubtitleName ?: "External subtitle"
+                    else format.label?.takeIf { it.isNotBlank() }
+                        ?: format.language?.takeIf { it.isNotBlank() && it != "und" }
+                        ?: "Embedded subtitle"
+                choices.add(label)
                 selections.add(group.mediaTrackGroup to index)
+                if (group.isTrackSelected(index)) selectedChoice = choices.lastIndex
             }
+        }
+        if (externalSubtitleUri != null && choices.size == 1) {
+            choices.add(externalSubtitleName ?: "External subtitle")
+            selections.add(null)
         }
         AlertDialog.Builder(this)
             .setTitle("Current subtitles")
-            .setSingleChoiceItems(choices.toTypedArray(), -1) { dialog, which ->
+            .setSingleChoiceItems(choices.toTypedArray(), selectedChoice) { dialog, which ->
                 val builder = currentPlayer.trackSelectionParameters.buildUpon()
                     .clearOverridesOfType(C.TRACK_TYPE_TEXT)
                     .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, which == 0)
@@ -978,7 +1007,7 @@ class PlayerActivity : AppCompatActivity() {
                     }
                 }
                 currentPlayer.trackSelectionParameters = builder.build()
-                captionLabel.visibility = if (which == 0) View.GONE else captionLabel.visibility
+                captionLabel.visibility = if (which == 0) View.GONE else View.VISIBLE
                 dialog.dismiss()
             }
             .setNegativeButton("Cancel", null)
@@ -992,7 +1021,7 @@ class PlayerActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             setPadding(dpPlayer(14), dpPlayer(8), dpPlayer(14), dpPlayer(12))
             background = android.graphics.drawable.GradientDrawable().apply {
-                setColor(0xE91B2229.toInt())
+                setColor(0xB91B2229.toInt())
                 cornerRadius = dpPlayer(12).toFloat()
                 setStroke(dpPlayer(1), 0x55FFFFFF.toInt())
             }
@@ -1023,7 +1052,40 @@ class PlayerActivity : AppCompatActivity() {
             textSize = 17f
             gravity = Gravity.CENTER
             setTextColor(android.graphics.Color.WHITE)
-            setPadding(0, dpPlayer(10), 0, dpPlayer(10))
+            setPadding(0, dpPlayer(5), 0, dpPlayer(5))
+        }
+        val secondsInput = android.widget.EditText(this).apply {
+            hint = "Seconds (e.g. -1.5)"
+            setSingleLine(true)
+            textSize = 14f
+            gravity = Gravity.CENTER
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or
+                android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+            setTextColor(android.graphics.Color.WHITE)
+            setHintTextColor(0x99FFFFFF.toInt())
+            setPadding(dpPlayer(6), 0, dpPlayer(6), 0)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(0x33222222)
+                cornerRadius = dpPlayer(6).toFloat()
+                setStroke(dpPlayer(1), 0x66888888)
+            }
+            setOnFocusChangeListener { _, hasFocus ->
+                if (!hasFocus) {
+                    val parsed = text?.toString()?.trim()?.toFloatOrNull()
+                    subtitleDelayMs = ((parsed ?: 0f) * 1000f).toLong().coerceIn(-10_000L, 10_000L)
+                    refresh()
+                }
+            }
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(text: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(text: CharSequence?, start: Int, before: Int, count: Int) {
+                    if (text.isNullOrEmpty()) {
+                        subtitleDelayMs = 0L
+                        value.text = "0.0s"
+                    }
+                }
+                override fun afterTextChanged(text: android.text.Editable?) {}
+            })
         }
         val plus = TextView(this).apply {
             text = "+"
@@ -1039,6 +1101,7 @@ class PlayerActivity : AppCompatActivity() {
         fun refresh() {
             value.text = String.format(java.util.Locale.US, "%+.1fs", subtitleDelayMs / 1000f)
             if (subtitleDelayMs == 0L) value.text = "0.0s"
+            if (!secondsInput.hasFocus()) secondsInput.setText(String.format(java.util.Locale.US, "%.1f", subtitleDelayMs / 1000f))
         }
         minus.setOnClickListener {
             subtitleDelayMs = (subtitleDelayMs - 100L).coerceAtLeast(-10_000L)
@@ -1048,9 +1111,13 @@ class PlayerActivity : AppCompatActivity() {
             subtitleDelayMs = (subtitleDelayMs + 100L).coerceAtMost(10_000L)
             refresh()
         }
-        card.addView(minus, LinearLayout.LayoutParams(dpPlayer(48), dpPlayer(42)))
-        card.addView(value, LinearLayout.LayoutParams(-1, dpPlayer(44)))
-        card.addView(plus, LinearLayout.LayoutParams(dpPlayer(48), dpPlayer(42)))
+        card.addView(minus, LinearLayout.LayoutParams(dpPlayer(42), dpPlayer(38)))
+        card.addView(value, LinearLayout.LayoutParams(-1, dpPlayer(34)))
+        card.addView(secondsInput, LinearLayout.LayoutParams(-1, dpPlayer(42)).apply {
+            topMargin = dpPlayer(4)
+            bottomMargin = dpPlayer(5)
+        })
+        card.addView(plus, LinearLayout.LayoutParams(dpPlayer(42), dpPlayer(38)))
         refresh()
         val gravity = if (isLandscapeNow()) Gravity.RIGHT or Gravity.CENTER_VERTICAL else Gravity.RIGHT or Gravity.BOTTOM
         playbackArea.addView(card, FrameLayout.LayoutParams(dpPlayer(142), -2, gravity).apply {
