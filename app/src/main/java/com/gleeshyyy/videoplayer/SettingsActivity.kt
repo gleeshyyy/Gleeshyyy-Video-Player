@@ -75,7 +75,7 @@ class SettingsActivity : AppCompatActivity() {
             "video" -> showVideo()
             "theme" -> startActivity(Intent(this, ThemeActivity::class.java))
             "manage" -> showManageScanList()
-            "subtitles" -> showPlaceholder("Subtitles", "Subtitle settings will be added in a future update.")
+            "subtitles" -> showSubtitles()
         }
     }
 
@@ -187,6 +187,44 @@ class SettingsActivity : AppCompatActivity() {
             }
             body.addView(row)
         }
+    }
+
+
+    private fun showSubtitles() {
+        beginPage("Subtitles", true)
+        body.addView(label("REMEMBER SUBTITLES", 12f, palette.accent, true).apply {
+            setPadding(0, dp(28), 0, dp(12))
+        })
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(15), dp(14), dp(15), dp(14))
+            setBackgroundColor(palette.surface)
+        }
+        val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        labels.addView(label("Remember Subtitles", 16f, palette.text, true))
+        labels.addView(label("Keep your subtitle size, color and position settings for all videos.", 12f, palette.muted).apply {
+            setPadding(0, dp(4), 0, 0)
+        })
+        row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
+        val toggle = SwitchCompat(this).apply {
+            isChecked = prefs.getBoolean("remember_subtitles", true)
+            showText = false
+            splitTrack = false
+            thumbTintList = ColorStateList.valueOf(palette.text)
+            trackTintList = ColorStateList(
+                arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+                intArrayOf(palette.accent, 0xFF46515A.toInt())
+            )
+            setOnCheckedChangeListener { _, checked ->
+                prefs.edit().putBoolean("remember_subtitles", checked).apply()
+            }
+        }
+        row.addView(toggle)
+        body.addView(row)
+        body.addView(label("Customize subtitle size, color and position from the controls while a video is playing.", 13f, palette.muted).apply {
+            setPadding(dp(2), dp(14), dp(2), 0)
+        })
     }
 
     private fun showPlaceholder(title: String, message: String) {
