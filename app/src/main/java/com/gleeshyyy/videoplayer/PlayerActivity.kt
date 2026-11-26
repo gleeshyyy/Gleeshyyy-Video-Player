@@ -111,6 +111,21 @@ class PlayerActivity : AppCompatActivity() {
     private val resizeModes = listOf(AspectRatioFrameLayout.RESIZE_MODE_FIT, AspectRatioFrameLayout.RESIZE_MODE_ZOOM, AspectRatioFrameLayout.RESIZE_MODE_FILL, AspectRatioFrameLayout.RESIZE_MODE_FIT)
     private val resizeLabels = listOf("FIT", "ZOOM", "FILL", "ORIGINAL")
     private var resizeModeIndex = 0
+    private var nativeVideoWidth = 0
+    private var nativeVideoHeight = 0
+    private fun applyAspectMode() {
+        if (!::playerView.isInitialized || !::playbackArea.isInitialized) return
+        if (resizeModeIndex == 3 && nativeVideoWidth > 0 && nativeVideoHeight > 0) {
+            playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+            val density = resources.displayMetrics.density
+            val widthDp = (nativeVideoWidth / density).toInt().coerceAtLeast(1)
+            val heightDp = (nativeVideoHeight / density).toInt().coerceAtLeast(1)
+            playerView.layoutParams = FrameLayout.LayoutParams(widthDp, heightDp, Gravity.CENTER)
+        } else {
+            playerView.resizeMode = resizeModes[resizeModeIndex.coerceIn(0, 2)]
+            playerView.layoutParams = FrameLayout.LayoutParams(-1, -1)
+        }
+    }
     private lateinit var gestureLayer: View
     private lateinit var gestureDetector: GestureDetector
     private var gestureVolume = 0f
@@ -239,7 +254,7 @@ class PlayerActivity : AppCompatActivity() {
             }
             setOnClickListener {
                 resizeModeIndex = (resizeModeIndex + 1) % resizeModes.size
-                playerView.resizeMode = resizeModes[resizeModeIndex]
+                applyAspectMode()
                 if (getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getBoolean("remember_aspect", true))
                     getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).edit().putInt("last_aspect", resizeModeIndex).apply()
                 text = resizeLabels[resizeModeIndex]
@@ -355,7 +370,7 @@ class PlayerActivity : AppCompatActivity() {
             contentDescription = "Change video aspect ratio"
             setOnClickListener {
                 resizeModeIndex = (resizeModeIndex + 1) % resizeModes.size
-                playerView.resizeMode = resizeModes[resizeModeIndex]
+                applyAspectMode()
                 if (getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getBoolean("remember_aspect", true))
                     getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).edit().putInt("last_aspect", resizeModeIndex).apply()
                 text = resizeLabels[resizeModeIndex]
@@ -582,6 +597,9 @@ class PlayerActivity : AppCompatActivity() {
                 override fun onVideoSizeChanged(videoSize: VideoSize) {
                     val rotated = videoSize.unappliedRotationDegrees % 180 != 0
                     videoIsLandscape = if (rotated) videoSize.height > videoSize.width else videoSize.width > videoSize.height
+                    nativeVideoWidth = if (rotated) videoSize.height else videoSize.width
+                    nativeVideoHeight = if (rotated) videoSize.width else videoSize.height
+                    applyAspectMode()
                     if (::orientationIcon.isInitialized) orientationIcon.setLandscape(videoIsLandscape)
                 }
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
