@@ -900,8 +900,8 @@ class MainActivity : AppCompatActivity() {
         panel.addView(choices)
         panel.addView(text("Order", 13f, palette.muted, true).apply { setPadding(0, dp(12), 0, dp(6)) })
         val orderRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val ascending = android.widget.Button(this).apply { text = "Ascending ↑"; isAllCaps = false }
-        val descending = android.widget.Button(this).apply { text = "Descending ↓"; isAllCaps = false }
+        val ascending = android.widget.Button(this).apply { text = "Ascending"; isAllCaps = false }
+        val descending = android.widget.Button(this).apply { text = "Descending"; isAllCaps = false }
         fun updateOrderButtons() {
             val activeColor = android.content.res.ColorStateList.valueOf(palette.accent)
             val inactiveColor = android.content.res.ColorStateList.valueOf(palette.raised)
