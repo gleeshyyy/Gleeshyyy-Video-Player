@@ -61,6 +61,7 @@ class MainActivity : AppCompatActivity() {
     private var sortAscending = false
     private val sortPrefs by lazy { getSharedPreferences("gleeshplayer_sort", MODE_PRIVATE) }
     private var searchQuery = ""
+    private var searchPage = false
     private var displayedVideoLimit = 40
     private var libraryLoaded = false
     private var scanInProgress = false
@@ -99,6 +100,12 @@ class MainActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
+                    searchPage -> {
+                        searchPage = false
+                        selectedFolder = null
+                        selectedTab = 0
+                        renderHome()
+                    }
                     selectedFolder != null -> {
                         selectedFolder = null
                         renderHome()
@@ -411,6 +418,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun renderHome() {
         content.removeAllViews()
+        if (searchPage) {
+            val back = ImageView(this).apply {
+                setImageResource(android.R.drawable.ic_media_previous)
+                imageTintList = android.content.res.ColorStateList.valueOf(palette.accent)
+                contentDescription = "Back to folders"
+                setPadding(dp(10), dp(10), dp(10), dp(10))
+                setOnClickListener { searchPage = false; selectedFolder = null; selectedTab = 0; renderHome() }
+            }
+            content.addView(back, LinearLayout.LayoutParams(dp(52), dp(52)))
+            return
+        }
         val folder = selectedFolder
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -427,70 +445,23 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(6), dp(4), dp(6), dp(4))
         }
         header.addView(brand, LinearLayout.LayoutParams(0, -2, 1f))
-        val settings = TextView(this).apply {
-            text = "⚙"
-            textSize = 24f
-            setTextColor(palette.accent)
-            setPadding(dp(12), dp(4), 0, dp(4))
+        val searchIcon = ImageView(this).apply {
+            setImageResource(android.R.drawable.ic_menu_search)
+            imageTintList = android.content.res.ColorStateList.valueOf(palette.accent)
+            contentDescription = "Search"
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            setOnClickListener { searchPage = true; selectedFolder = null; selectedTab = 0; renderHome() }
+        }
+        header.addView(searchIcon, LinearLayout.LayoutParams(dp(48), dp(48)))
+        val settings = ImageView(this).apply {
+            setImageResource(android.R.drawable.ic_menu_preferences)
+            imageTintList = android.content.res.ColorStateList.valueOf(palette.accent)
             contentDescription = "Settings"
+            setPadding(dp(12), dp(8), dp(12), dp(8))
             setOnClickListener { startActivity(Intent(this@MainActivity, SettingsActivity::class.java)) }
         }
-        header.addView(settings)
-        val searchBox = android.widget.EditText(this).apply {
-            hint = "Search videos or folders"
-            setSingleLine(true)
-            textSize = 14f
-            setTextColor(palette.text)
-            setHintTextColor(palette.muted)
-            setPadding(dp(14), dp(8), dp(14), dp(8))
-            setBackgroundColor(panelBackground())
-            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
-            setText(searchQuery)
-            setSelection(text.length)
-            setOnEditorActionListener { _, actionId, _ ->
-                if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
-                    searchQuery = text.toString().trim()
-                    renderHome()
-                    true
-                } else false
-            }
-        }
-        val searchIcon = TextView(this).apply {
-            text = "⌕"
-            textSize = 27f
-            setTextColor(palette.accent)
-            gravity = Gravity.CENTER
-            contentDescription = "Search videos"
-            setPadding(dp(10), dp(3), dp(10), dp(3))
-            setOnClickListener {
-                searchBox.requestFocus()
-                val keyboard = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-                keyboard.showSoftInput(searchBox, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
-            }
-        }
-        header.addView(searchIcon)
+        header.addView(settings, LinearLayout.LayoutParams(dp(48), dp(48)))
         content.addView(header)
-
-        val searchRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            addView(searchBox, LinearLayout.LayoutParams(0, -2, 1f))
-            val clearSearch = TextView(this@MainActivity).apply {
-                text = "✕"
-                textSize = 18f
-                setTextColor(palette.accent)
-                gravity = Gravity.CENTER
-                setPadding(dp(14), dp(10), dp(4), dp(10))
-                setOnClickListener {
-                    searchQuery = ""
-                    renderHome()
-                }
-            }
-            addView(clearSearch)
-        }
-        content.addView(searchRow, LinearLayout.LayoutParams(-1, -2).apply {
-            topMargin = dp(8)
-        })
 
         if (folder != null) {
             val back = text("‹  ALL FOLDERS", 13f, palette.accent, true).apply {
@@ -535,15 +506,13 @@ class MainActivity : AppCompatActivity() {
                 setPadding(0, dp(15), 0, dp(8))
             }
             videoHeading.addView(text("All videos · " + allVideos.size, 17f, palette.text, true), LinearLayout.LayoutParams(0, -2, 1f))
-            videoHeading.addView(TextView(this).apply {
-                text = "↕"
-                textSize = 25f
-                setTextColor(palette.accent)
-                gravity = Gravity.CENTER
+            videoHeading.addView(ImageView(this).apply {
+                setImageResource(android.R.drawable.ic_menu_sort_by_size)
+                imageTintList = android.content.res.ColorStateList.valueOf(palette.accent)
                 contentDescription = "Sort videos"
-                setPadding(dp(12), 0, dp(5), 0)
+                setPadding(dp(12), dp(8), dp(5), dp(8))
                 setOnClickListener { showSortOptions() }
-            })
+            }, LinearLayout.LayoutParams(dp(48), dp(44)))
             content.addView(videoHeading)
             val videos = sortVideos(allVideos.filter { searchQuery.isBlank() || it.title.contains(searchQuery, true) || it.folder.contains(searchQuery, true) })
             if (videos.isEmpty()) content.addView(text("No videos found.", 14f, palette.muted).apply { setPadding(0, dp(8), 0, dp(18)) })
@@ -574,14 +543,13 @@ class MainActivity : AppCompatActivity() {
             setPadding(0, dp(15), 0, dp(8))
         }
         folderHeading.addView(text("Folders · ${folders.size}", 17f, palette.text, true), LinearLayout.LayoutParams(0, -2, 1f))
-        folderHeading.addView(TextView(this).apply {
-            text = "↕"
-            textSize = 25f
-            setTextColor(palette.accent)
+        folderHeading.addView(ImageView(this).apply {
+            setImageResource(android.R.drawable.ic_menu_sort_by_size)
+            imageTintList = android.content.res.ColorStateList.valueOf(palette.accent)
             contentDescription = "Sort folders and videos"
-            setPadding(dp(12), 0, dp(5), 0)
+            setPadding(dp(12), dp(8), dp(5), dp(8))
             setOnClickListener { showSortOptions() }
-        })
+        }, LinearLayout.LayoutParams(dp(48), dp(44)))
         content.addView(folderHeading)
         if (folders.isEmpty()) {
             content.addView(text("No videos found. Allow video access or add videos to your device.", 14f, palette.muted).apply { setPadding(0, dp(8), 0, dp(18)) })
@@ -609,9 +577,14 @@ class MainActivity : AppCompatActivity() {
                     gravity = Gravity.CENTER
                     setTextColor(palette.muted)
                     contentDescription = "Folder options"
-                    setPadding(dp(12), dp(8), dp(4), dp(8))
+                    isClickable = true
+                    isFocusable = true
+                    minWidth = dp(52)
+                    minHeight = dp(52)
+                    setPadding(dp(8), dp(8), dp(8), dp(8))
+                    setBackgroundResource(android.R.drawable.list_selector_background)
                     setOnClickListener { showFolderOptions(path, videos) }
-                })
+                }, LinearLayout.LayoutParams(dp(52), dp(52)))
                 val params = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) }
                 content.addView(row, params)
             }
@@ -796,8 +769,14 @@ class MainActivity : AppCompatActivity() {
         val ascending = android.widget.Button(this).apply { text = "Ascending ↑"; isAllCaps = false }
         val descending = android.widget.Button(this).apply { text = "Descending ↓"; isAllCaps = false }
         fun updateOrderButtons() {
-            ascending.alpha = if (sortAscending) 1f else .55f
-            descending.alpha = if (sortAscending) .55f else 1f
+            val activeColor = android.content.res.ColorStateList.valueOf(palette.accent)
+            val inactiveColor = android.content.res.ColorStateList.valueOf(palette.raised)
+            ascending.backgroundTintList = if (sortAscending) activeColor else inactiveColor
+            descending.backgroundTintList = if (sortAscending) inactiveColor else activeColor
+            ascending.setTextColor(if (sortAscending) Color.BLACK else palette.text)
+            descending.setTextColor(if (sortAscending) palette.text else Color.BLACK)
+            ascending.alpha = 1f
+            descending.alpha = 1f
         }
         ascending.setOnClickListener {
             sortAscending = true
@@ -815,7 +794,12 @@ class MainActivity : AppCompatActivity() {
         orderRow.addView(descending, LinearLayout.LayoutParams(0, -2, 1f))
         panel.addView(orderRow)
         updateOrderButtons()
-        AlertDialog.Builder(this).setTitle("Sort videos").setView(panel).setNegativeButton("Close", null).show()
+        val dialog = AlertDialog.Builder(this).setTitle("Sort videos").setView(panel).setNegativeButton("Close", null).create()
+        dialog.setOnShowListener {
+            dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(palette.surface))
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(palette.accent)
+        }
+        dialog.show()
     }
 
     private fun addRecentlyPlayedSection() {
@@ -884,9 +868,14 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             setTextColor(palette.muted)
             contentDescription = "Video options"
-            setPadding(dp(12), dp(8), dp(2), dp(8))
+            isClickable = true
+            isFocusable = true
+            minWidth = dp(52)
+            minHeight = dp(52)
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            setBackgroundResource(android.R.drawable.list_selector_background)
             setOnClickListener { showVideoOptions(video) }
-        })
+        }, LinearLayout.LayoutParams(dp(52), dp(52)))
         content.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
     }
 
