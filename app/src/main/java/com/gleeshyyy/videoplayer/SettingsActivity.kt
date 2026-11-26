@@ -3,7 +3,8 @@ package com.gleeshyyy.videoplayer
 import android.os.Bundle
 import android.view.Gravity
 import android.widget.LinearLayout
-import android.widget.Switch
+import android.content.res.ColorStateList
+import androidx.appcompat.widget.SwitchCompat
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 
@@ -85,8 +86,15 @@ class SettingsActivity : AppCompatActivity() {
             setBackgroundColor(0xFF111A22.toInt())
         }
         historyRow.addView(label("Show History", 16f, 0xFFF1F5F7.toInt(), true), LinearLayout.LayoutParams(0, -2, 1f))
-        val toggle = Switch(this).apply {
+        val toggle = SwitchCompat(this).apply {
             isChecked = prefs.getBoolean("show_history", true)
+            showText = false
+            splitTrack = false
+            thumbTintList = ColorStateList.valueOf(0xFFF1F5F7.toInt())
+            trackTintList = ColorStateList(
+                arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+                intArrayOf(0xFF20D66B.toInt(), 0xFF46515A.toInt())
+            )
             setOnCheckedChangeListener { _, checked -> prefs.edit().putBoolean("show_history", checked).apply() }
         }
         historyRow.addView(toggle)
