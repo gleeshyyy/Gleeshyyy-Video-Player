@@ -35,7 +35,7 @@ object ThemeManager {
             val bounds=BitmapFactory.Options().apply { inJustDecodeBounds=true }
             resolver.openInputStream(parsed)?.use { BitmapFactory.decodeStream(it,null,bounds) }
             var sample=1
-            while(bounds.outWidth/sample>1600 || bounds.outHeight/sample>1600) sample*=2
+            while(bounds.outWidth/sample>640 || bounds.outHeight/sample>640) sample*=2
             val options=BitmapFactory.Options().apply { inSampleSize=sample.coerceAtLeast(1); inPreferredConfig=Bitmap.Config.RGB_565 }
             val decoded=resolver.openInputStream(parsed)?.use { BitmapFactory.decodeStream(it,null,options) }
             cachedUri=uri
@@ -93,6 +93,6 @@ object ThemeManager {
     }
 
     fun blur(view:View,radius:Float) {
-        if(Build.VERSION.SDK_INT>=31) view.setRenderEffect(if(radius>0f) RenderEffect.createBlurEffect(radius,radius,Shader.TileMode.CLAMP) else null)
+        if(Build.VERSION.SDK_INT>=31) view.setRenderEffect(if(radius>0f) RenderEffect.createBlurEffect(radius.coerceAtMost(10f),radius.coerceAtMost(10f),Shader.TileMode.CLAMP) else null)
     }
 }
