@@ -108,8 +108,8 @@ class PlayerActivity : AppCompatActivity() {
     private var videoKey: String = ""
     private val playbackSpeeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
     private var playbackSpeedIndex = 2
-    private val resizeModes = listOf(AspectRatioFrameLayout.RESIZE_MODE_FIT, AspectRatioFrameLayout.RESIZE_MODE_ZOOM, AspectRatioFrameLayout.RESIZE_MODE_FILL)
-    private val resizeLabels = listOf("FIT", "ZOOM", "FILL")
+    private val resizeModes = listOf(AspectRatioFrameLayout.RESIZE_MODE_FIT, AspectRatioFrameLayout.RESIZE_MODE_ZOOM, AspectRatioFrameLayout.RESIZE_MODE_FILL, AspectRatioFrameLayout.RESIZE_MODE_FIT)
+    private val resizeLabels = listOf("FIT", "ZOOM", "FILL", "ORIGINAL")
     private var resizeModeIndex = 0
     private lateinit var gestureLayer: View
     private lateinit var gestureDetector: GestureDetector
@@ -306,7 +306,7 @@ class PlayerActivity : AppCompatActivity() {
             setOnTouchListener { _, event -> handlePlaybackGesture(event) }
         }
         playbackArea.addView(gestureLayer, FrameLayout.LayoutParams(-1, -1))
-        seekFeedbackOverlay = SeekFeedbackOverlay(this)
+        seekFeedbackOverlay = SeekFeedbackOverlay(this).apply { visibility = View.GONE; isClickable = false; isFocusable = false }
         playbackArea.addView(seekFeedbackOverlay, FrameLayout.LayoutParams(-1, -1))
         landscapeHeader = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -1046,7 +1046,7 @@ class PlayerActivity : AppCompatActivity() {
                 }
                 gestureMode = 0
                 if (longPressSpeedActive) {
-                    player?.setPlaybackSpeed(playbackSpeeds[playbackSpeedIndex])
+                    player?.setPlaybackSpeed(1.0f)
                     longPressSpeedActive = false
                 }
                 if (completedMode != 0 || wasLongPress) hideGestureFeedbackSoon()
@@ -1244,7 +1244,7 @@ class PlayerActivity : AppCompatActivity() {
     override fun onPause() {
         controlsHandler.removeCallbacks(hideControlsRunnable)
         if (longPressSpeedActive) {
-            player?.setPlaybackSpeed(playbackSpeeds[playbackSpeedIndex])
+            player?.setPlaybackSpeed(1.0f)
             longPressSpeedActive = false
         }
         savePosition()
