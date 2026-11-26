@@ -78,6 +78,15 @@ class MainActivity : AppCompatActivity() {
     private val thumbnailLoads = ConcurrentHashMap.newKeySet<String>()
     private val recentPrefs by lazy { getSharedPreferences("gleeshplayer_history", MODE_PRIVATE) }
     private var pendingWriteAction: (() -> Unit)? = null
+    private var pendingDeleteAction: (() -> Unit)? = null
+    private val deletePermissionRequest = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            pendingDeleteAction?.invoke()
+            android.widget.Toast.makeText(this, "Deleted", android.widget.Toast.LENGTH_SHORT).show()
+        }
+        pendingDeleteAction = null
+        loadLibrary()
+    }
     private val writePermissionRequest = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == RESULT_OK) pendingWriteAction?.invoke()
         pendingWriteAction = null
@@ -464,12 +473,17 @@ class MainActivity : AppCompatActivity() {
                 if (matches.isEmpty()) results.addView(text("No matching videos found.", 14f, palette.muted))
                 else matches.forEach { addVideoRow(it, matches, results) }
             }
+            var pendingSearch: Runnable? = null
             updateResults(searchQuery)
             searchInput.addTextChangedListener(object : android.text.TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                     searchQuery = s?.toString().orEmpty()
-                    updateResults(searchQuery)
+                    pendingSearch?.let { thumbnailHandler.removeCallbacks(it) }
+                    val querySnapshot = searchQuery
+                    val task = Runnable { if (searchPage && searchInput.isAttachedToWindow && querySnapshot == searchQuery) updateResults(querySnapshot) }
+                    pendingSearch = task
+                    thumbnailHandler.postDelayed(task, 180L)
                 }
                 override fun afterTextChanged(s: android.text.Editable?) {}
             })
@@ -510,11 +524,14 @@ class MainActivity : AppCompatActivity() {
         content.addView(header)
 
         if (folder != null) {
-            val back = text("‹  ALL FOLDERS", 13f, palette.accent, true).apply {
-                setPadding(0, dp(22), 0, dp(8))
+            val back = text("‹  ALL FOLDERS", 17f, palette.accent, true).apply {
+                setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 17f)
+                setPadding(0, dp(20), 0, dp(12))
+                minHeight = dp(56)
+                gravity = Gravity.CENTER_VERTICAL
                 setOnClickListener { selectedFolder = null; renderHome() }
             }
-            content.addView(back)
+            content.addView(back, LinearLayout.LayoutParams(-1, dp(58)))
             val folderVideos = allVideos.filter { it.folderPath == folder }
             val folderName = folderVideos.firstOrNull()?.folder ?: "Folder"
             content.addView(text(folderName, 26f, palette.text, true))
@@ -642,7 +659,7 @@ class MainActivity : AppCompatActivity() {
         val name = videos.firstOrNull()?.folder ?: "Folder"
         AlertDialog.Builder(this)
             .setTitle(name)
-            .setItems(arrayOf("Share", "Rename", "Properties", "Hide from Scan list")) { _, which ->
+            .setItems(arrayOf("Share", "Rename", "Properties", "Hide from Scan list", "Delete")) { _, which ->
                 when (which) {
                     0 -> shareVideos(videos)
                     1 -> promptRenameFolder(path, videos)
@@ -657,6 +674,7 @@ class MainActivity : AppCompatActivity() {
                         selectedFolder = null
                         renderHome()
                     }
+                    4 -> confirmDeleteVideos(videos, "Delete this folder and all its videos?")
                 }
             }
             .setNegativeButton("Cancel", null)
@@ -666,15 +684,45 @@ class MainActivity : AppCompatActivity() {
     private fun showVideoOptions(video: VideoItem) {
         AlertDialog.Builder(this)
             .setTitle(video.title)
-            .setItems(arrayOf("Share", "Rename", "Properties")) { _, which ->
+            .setItems(arrayOf("Share", "Rename", "Properties", "Delete")) { _, which ->
                 when (which) {
                     0 -> shareVideos(listOf(video))
                     1 -> promptRenameVideo(video)
                     2 -> showVideoProperties(video)
+                    3 -> confirmDeleteVideos(listOf(video), "Delete this video?")
                 }
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun confirmDeleteVideos(videos: List<VideoItem>, message: String) {
+        if (videos.isEmpty()) return
+        AlertDialog.Builder(this)
+            .setTitle("Delete")
+            .setMessage("$message This cannot be undone.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Delete") { _, _ ->
+                val uris = videos.map { it.uri }.distinct()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    try {
+                        pendingDeleteAction = { loadLibrary() }
+                        val request = MediaStore.createDeleteRequest(contentResolver, uris)
+                        deletePermissionRequest.launch(IntentSenderRequest.Builder(request.intentSender).build())
+                    } catch (_: Exception) {
+                        pendingDeleteAction = null
+                        android.widget.Toast.makeText(this, "Could not request delete permission", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                } else {
+                    try {
+                        uris.forEach { contentResolver.delete(it, null, null) }
+                        android.widget.Toast.makeText(this, "Deleted", android.widget.Toast.LENGTH_SHORT).show()
+                        loadLibrary()
+                    } catch (_: Exception) {
+                        android.widget.Toast.makeText(this, "Delete failed", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }
+            }.show()
     }
 
     private fun shareVideos(videos: List<VideoItem>) {
