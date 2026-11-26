@@ -7,5 +7,9 @@
         <item name="android:navigationBarColor">#080D12</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:fontFamily">sans</item>
+        <item name="android:windowBackground">#000000</item>
+        <item name="android:windowSplashScreenBackground">#000000</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@android:color/transparent</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">#000000</item>
     </style>
 </resources>
