@@ -149,7 +149,12 @@ class MainActivity : AppCompatActivity() {
         libraryScroll.addView(content)
         setContentView(frame)
         applyLibraryTheme()
-        if (hasVideoPermission()) loadLibrary() else requestVideoPermission()
+        if (hasVideoPermission()) {
+            allVideos = readCachedVideos()
+            libraryLoaded = true
+            renderHome()
+            loadLibrary()
+        } else requestVideoPermission()
     }
 
     private fun applyLibraryTheme() {
@@ -188,20 +193,51 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadLibrary() {
         val generation = ++libraryLoadGeneration
-        content.removeAllViews()
-        content.addView(text("Scanning your videos…", 15f, palette.muted).apply {
-            setPadding(0, dp(28), 0, dp(12))
-        })
+        if (!libraryLoaded) {
+            content.removeAllViews()
+            content.addView(text("Scanning your videos…", 15f, palette.muted).apply {
+                setPadding(0, dp(28), 0, dp(12))
+            })
+        }
         libraryExecutor.execute {
             val videos = if (hasVideoPermission()) queryVideos() else emptyList()
             thumbnailHandler.post {
                 if (isFinishing || isDestroyed || generation != libraryLoadGeneration) return@post
                 allVideos = videos
+                writeCachedVideos(videos)
                 libraryLoaded = true
-                selectedFolder = null
+                if (selectedFolder != null && videos.none { it.folderPath == selectedFolder }) selectedFolder = null
                 renderHome()
             }
         }
+    }
+
+    private fun readCachedVideos(): List<VideoItem> {
+        val raw = getSharedPreferences("gleeshplayer_cache", MODE_PRIVATE).getString("videos", null) ?: return emptyList()
+        return try {
+            val array = JSONArray(raw)
+            (0 until array.length()).mapNotNull { index ->
+                val item = array.getJSONObject(index)
+                val uri = android.net.Uri.parse(item.getString("uri"))
+                VideoItem(item.getLong("id"), item.getString("title"), uri, item.getLong("duration"),
+                    item.getString("folder"), item.getString("folderPath"), item.getLong("dateAdded"),
+                    item.optInt("width"), item.optInt("height"), item.optLong("sizeBytes"))
+            }.filterNot { it.folderPath in (getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+                .getStringSet("excluded_scan_folders", emptySet()) ?: emptySet()) }
+        } catch (_: Exception) { emptyList() }
+    }
+
+    private fun writeCachedVideos(videos: List<VideoItem>) {
+        val array = JSONArray()
+        videos.take(2000).forEach { video ->
+            array.put(org.json.JSONObject().apply {
+                put("id", video.id); put("title", video.title); put("uri", video.uri.toString())
+                put("duration", video.duration); put("folder", video.folder); put("folderPath", video.folderPath)
+                put("dateAdded", video.dateAdded); put("width", video.width); put("height", video.height)
+                put("sizeBytes", video.sizeBytes)
+            })
+        }
+        getSharedPreferences("gleeshplayer_cache", MODE_PRIVATE).edit().putString("videos", array.toString()).apply()
     }
 
     private fun queryVideos(): List<VideoItem> {
@@ -269,7 +305,7 @@ class MainActivity : AppCompatActivity() {
                 setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, length, 0)
             }
             textSize = 25f
-            setBackgroundColor(0xFFF3F6F4.toInt())
+            setBackgroundColor(Color.TRANSPARENT)
             setPadding(dp(12), dp(8), dp(12), dp(8))
         }
         header.addView(brand, LinearLayout.LayoutParams(0, -2, 1f))
