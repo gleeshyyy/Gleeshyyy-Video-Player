@@ -301,6 +301,35 @@ class PlayerActivity : AppCompatActivity() {
             setTextColor(android.graphics.Color.WHITE)
             gravity = Gravity.CENTER_VERTICAL
         }, LinearLayout.LayoutParams(0, -2, 1f))
+        val landscapeActions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        landscapeActions.addView(PhoneOrientationIcon(this).apply {
+            setLandscape(videoIsLandscape)
+            contentDescription = "Switch screen orientation"
+            setOnClickListener {
+                requestedOrientation = if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
+                    ActivityInfo.SCREEN_ORIENTATION_PORTRAIT else ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            }
+        }, LinearLayout.LayoutParams(dpPlayer(42), dpPlayer(42)))
+        landscapeActions.addView(TextView(this).apply {
+            text = "CC"; textSize = 14f; typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER; setTextColor(android.graphics.Color.WHITE)
+            contentDescription = "Subtitle customization"
+            setOnClickListener { showSubtitleCustomization() }
+        }, LinearLayout.LayoutParams(dpPlayer(42), dpPlayer(42)))
+        landscapeActions.addView(TextView(this).apply {
+            text = "FIT"; textSize = 13f; typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER; setTextColor(android.graphics.Color.WHITE)
+            contentDescription = "Change video aspect ratio"
+            setOnClickListener {
+                resizeModeIndex = (resizeModeIndex + 1) % resizeModes.size
+                playerView.resizeMode = resizeModes[resizeModeIndex]
+                text = resizeLabels[resizeModeIndex]
+            }
+        }, LinearLayout.LayoutParams(dpPlayer(42), dpPlayer(42)))
+        landscapeHeader.addView(landscapeActions)
         playbackArea.addView(landscapeHeader, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
         val feedback = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -991,7 +1020,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun scheduleControlsHide() {
         controlsHandler.removeCallbacks(hideControlsRunnable)
-        if (isLandscapeNow()) controlsHandler.postDelayed(hideControlsRunnable, 300000L)
+        if (isLandscapeNow()) controlsHandler.postDelayed(hideControlsRunnable, 5000L)
     }
 
     private fun showEndBehaviorOptions() {
