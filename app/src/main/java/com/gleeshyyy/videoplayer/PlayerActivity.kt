@@ -13,12 +13,14 @@ import org.json.JSONArray
 class PlayerActivity : AppCompatActivity() {
     private var player: ExoPlayer? = null
     private lateinit var playerView: PlayerView
+    private var videoKey: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val uri = intent.data ?: run { finish(); return }
         val title = intent.getStringExtra("title") ?: uri.lastPathSegment ?: "Video"
-        remember(uri.toString())
+        videoKey = uri.toString()
+        remember(videoKey)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -43,9 +45,11 @@ class PlayerActivity : AppCompatActivity() {
         root.addView(playerView, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(root)
 
+        val prefs = getSharedPreferences("gleeshplayer_history", MODE_PRIVATE)
+        val resumeAt = prefs.getLong("position_$videoKey", 0L).coerceAtLeast(0L)
         player = ExoPlayer.Builder(this).build().also {
             playerView.player = it
-            it.setMediaItem(MediaItem.fromUri(uri))
+            it.setMediaItem(MediaItem.fromUri(uri), resumeAt)
             it.prepare()
             it.play()
         }
@@ -61,8 +65,23 @@ class PlayerActivity : AppCompatActivity() {
         prefs.edit().putString("recent", JSONArray(next).toString()).apply()
     }
 
-    override fun onStop() {
+    private fun savePosition() {
+        val current = player ?: return
+        val position = current.currentPosition.coerceAtLeast(0L)
+        val duration = current.duration
+        val savedPosition = if (duration > 0 && position >= duration - 1500L) 0L else position
+        getSharedPreferences("gleeshplayer_history", MODE_PRIVATE)
+            .edit().putLong("position_$videoKey", savedPosition).apply()
+    }
+
+    override fun onPause() {
+        savePosition()
         playerView.onPause()
+        super.onPause()
+    }
+
+    override fun onStop() {
+        savePosition()
         super.onStop()
     }
 
