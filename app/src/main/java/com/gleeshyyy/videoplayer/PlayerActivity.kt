@@ -76,7 +76,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onPause() {
         savePosition()
-        playerView.onPause()
+        if (::playerView.isInitialized) playerView.onPause()
         super.onPause()
     }
 
@@ -86,7 +86,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        playerView.player = null
+        if (::playerView.isInitialized) playerView.player = null
         player?.release()
         player = null
         super.onDestroy()
