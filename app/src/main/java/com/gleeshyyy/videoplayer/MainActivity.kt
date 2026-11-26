@@ -556,6 +556,143 @@ class MainActivity : AppCompatActivity() {
 
     }
 
+    private fun showFolderOptions(path: String, videos: List<VideoItem>) {
+        val name = videos.firstOrNull()?.folder ?: "Folder"
+        AlertDialog.Builder(this)
+            .setTitle(name)
+            .setItems(arrayOf("Share", "Rename", "Properties", "Hide from Scan list")) { _, which ->
+                when (which) {
+                    0 -> shareVideos(videos)
+                    1 -> promptRenameFolder(path, videos)
+                    2 -> showFolderProperties(path, videos)
+                    3 -> {
+                        val prefs = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+                        val excluded = (prefs.getStringSet("excluded_scan_folders", emptySet()) ?: emptySet()).toMutableSet()
+                        excluded.add(path)
+                        prefs.edit().putStringSet("excluded_scan_folders", excluded).putBoolean("scan_settings_changed", false).apply()
+                        allVideos = allVideos.filterNot { it.folderPath == path }
+                        writeCachedVideos(allVideos)
+                        selectedFolder = null
+                        renderHome()
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showVideoOptions(video: VideoItem) {
+        AlertDialog.Builder(this)
+            .setTitle(video.title)
+            .setItems(arrayOf("Share", "Rename", "Properties")) { _, which ->
+                when (which) {
+                    0 -> shareVideos(listOf(video))
+                    1 -> promptRenameVideo(video)
+                    2 -> showVideoProperties(video)
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun shareVideos(videos: List<VideoItem>) {
+        if (videos.isEmpty()) return
+        val uris = ArrayList(videos.map { it.uri })
+        val intent = Intent(if (uris.size == 1) Intent.ACTION_SEND else Intent.ACTION_SEND_MULTIPLE).apply {
+            type = "video/*"
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            if (uris.size == 1) putExtra(Intent.EXTRA_STREAM, uris[0])
+            else putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+        }
+        try {
+            startActivity(Intent.createChooser(intent, "Share video"))
+        } catch (_: Exception) {
+            android.widget.Toast.makeText(this, "Unable to share these videos", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun promptRenameVideo(video: VideoItem) {
+        val input = android.widget.EditText(this).apply {
+            setSingleLine(true)
+            setText(video.title)
+            setSelection(text.length)
+            setPadding(dp(20), dp(12), dp(20), dp(12))
+        }
+        AlertDialog.Builder(this).setTitle("Rename video").setView(input)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Rename") { _, _ ->
+                var newName = input.text.toString().trim()
+                if (newName.isBlank()) return@setPositiveButton
+                if (!newName.contains('.') && video.title.contains('.')) newName += "." + video.title.substringAfterLast('.')
+                requestMediaWrite(listOf(video.uri)) {
+                    try {
+                        val values = ContentValues().apply { put(MediaStore.MediaColumns.DISPLAY_NAME, newName) }
+                        contentResolver.update(video.uri, values, null, null)
+                        loadLibrary()
+                    } catch (_: Exception) {
+                        android.widget.Toast.makeText(this, "Rename failed", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }.show()
+    }
+
+    private fun promptRenameFolder(path: String, videos: List<VideoItem>) {
+        val oldName = videos.firstOrNull()?.folder ?: return
+        val input = android.widget.EditText(this).apply {
+            setSingleLine(true)
+            setText(oldName)
+            setSelection(text.length)
+            setPadding(dp(20), dp(12), dp(20), dp(12))
+        }
+        AlertDialog.Builder(this).setTitle("Rename folder").setView(input)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Rename") { _, _ ->
+                val newName = input.text.toString().trim().trim('/')
+                if (newName.isBlank() || newName == oldName) return@setPositiveButton
+                val parent = path.substringBeforeLast('/', "")
+                val newPath = if (parent.isBlank()) "$newName/" else "$parent/$newName/"
+                requestMediaWrite(videos.map { it.uri }) {
+                    try {
+                        videos.forEach { video ->
+                            val values = ContentValues().apply { put(MediaStore.MediaColumns.RELATIVE_PATH, newPath) }
+                            contentResolver.update(video.uri, values, null, null)
+                        }
+                        loadLibrary()
+                    } catch (_: Exception) {
+                        android.widget.Toast.makeText(this, "Folder rename failed", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }.show()
+    }
+
+    private fun requestMediaWrite(uris: List<android.net.Uri>, action: () -> Unit) {
+        if (uris.isEmpty()) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                pendingWriteAction = action
+                val request = MediaStore.createWriteRequest(contentResolver, uris)
+                writePermissionRequest.launch(IntentSenderRequest.Builder(request.intentSender).build())
+            } catch (_: Exception) {
+                pendingWriteAction = null
+                android.widget.Toast.makeText(this, "Could not request permission to edit this media", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            action()
+        }
+    }
+
+    private fun showVideoProperties(video: VideoItem) {
+        val resolution = if (video.width > 0 && video.height > 0) "${video.width} × ${video.height}" else "Unknown"
+        val details = "Name: ${video.title}\nFolder: ${video.folderPath}\nDuration: ${formatDuration(video.duration)}\nResolution: $resolution\nSize: ${formatFileSize(video.sizeBytes)}"
+        AlertDialog.Builder(this).setTitle("Video properties").setMessage(details).setPositiveButton("OK", null).show()
+    }
+
+    private fun showFolderProperties(path: String, videos: List<VideoItem>) {
+        val totalSize = videos.sumOf { it.sizeBytes }
+        val details = "Folder: ${videos.firstOrNull()?.folder ?: "Folder"}\nPath: $path\nVideos: ${videos.size}\nTotal size: ${formatFileSize(totalSize)}"
+        AlertDialog.Builder(this).setTitle("Folder properties").setMessage(details).setPositiveButton("OK", null).show()
+    }
+
     private fun sortVideos(videos: List<VideoItem>): List<VideoItem> {
         val sorted = when (sortMode) {
             0 -> videos.sortedBy { it.duration }
