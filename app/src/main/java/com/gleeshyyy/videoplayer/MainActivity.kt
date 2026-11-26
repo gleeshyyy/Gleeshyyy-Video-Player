@@ -671,9 +671,32 @@ class MainActivity : AppCompatActivity() {
 
     }
 
+
+    private fun showThemedOptionsDialog(dialog: AlertDialog) {
+        dialog.setOnShowListener {
+            dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(palette.surface))
+            dialog.findViewById<TextView>(androidx.appcompat.R.id.alertTitle)?.setTextColor(palette.text)
+            dialog.findViewById<TextView>(android.R.id.message)?.setTextColor(palette.muted)
+            listOf(AlertDialog.BUTTON_POSITIVE, AlertDialog.BUTTON_NEGATIVE, AlertDialog.BUTTON_NEUTRAL).forEach { which ->
+                dialog.getButton(which)?.setTextColor(palette.accent)
+            }
+            val list = dialog.listView
+            for (index in 0 until list.childCount) {
+                (list.getChildAt(index) as? TextView)?.setTextColor(palette.text)
+            }
+            list.setOnHierarchyChangeListener(object : ViewGroup.OnHierarchyChangeListener {
+                override fun onChildViewAdded(parent: View?, child: View?) {
+                    (child as? TextView)?.setTextColor(palette.text)
+                }
+                override fun onChildViewRemoved(parent: View?, child: View?) {}
+            })
+        }
+        dialog.show()
+    }
+
     private fun showFolderOptions(path: String, videos: List<VideoItem>) {
         val name = videos.firstOrNull()?.folder ?: "Folder"
-        AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this)
             .setTitle(name)
             .setItems(arrayOf("Share", "Rename", "Properties", "Hide from Scan list", "Delete")) { _, which ->
                 when (which) {
@@ -694,11 +717,12 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             .setNegativeButton("Cancel", null)
-            .show()
+            .create()
+        showThemedOptionsDialog(dialog)
     }
 
     private fun showVideoOptions(video: VideoItem) {
-        AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this)
             .setTitle(video.title)
             .setItems(arrayOf("Share", "Rename", "Properties", "Delete")) { _, which ->
                 when (which) {
@@ -709,7 +733,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             .setNegativeButton("Cancel", null)
-            .show()
+            .create()
+        showThemedOptionsDialog(dialog)
     }
 
     private fun confirmDeleteVideos(videos: List<VideoItem>, message: String) {
