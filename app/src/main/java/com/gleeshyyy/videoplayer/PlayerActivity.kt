@@ -1,6 +1,9 @@
 package com.gleeshyyy.videoplayer
 
 import android.content.res.Configuration
+import android.net.Uri
+import android.database.Cursor
+import android.provider.OpenableColumns
 import android.content.pm.ActivityInfo
 import android.media.AudioManager
 import android.provider.Settings
@@ -17,10 +20,13 @@ import android.widget.Button
 import android.graphics.Typeface
 import android.util.TypedValue
 import androidx.appcompat.app.AlertDialog
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.MediaItem
+import androidx.media3.common.C
+import androidx.media3.common.MimeTypes
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import org.json.JSONArray
@@ -28,6 +34,10 @@ import org.json.JSONArray
 class PlayerActivity : AppCompatActivity() {
     private val palette get() = ThemeManager.palette(this)
     private var player: ExoPlayer? = null
+    private var externalSubtitleUri: Uri? = null
+    private val subtitlePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) attachExternalSubtitle(uri)
+    }
     private lateinit var playerView: PlayerView
     private var videoKey: String = ""
     private val playbackSpeeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
@@ -97,6 +107,15 @@ class PlayerActivity : AppCompatActivity() {
             setOnClickListener { showSubtitleCustomization() }
         }
         heading.addView(subtitleButton)
+        val loadSubtitleButton = TextView(this).apply {
+            text = "SUB"
+            textSize = 13f
+            setTextColor(palette.accent)
+            setPadding(12, 10, 4, 10)
+            contentDescription = "Load external SRT subtitle"
+            setOnClickListener { subtitlePicker.launch(arrayOf("*/*")) }
+        }
+        heading.addView(loadSubtitleButton)
         val fitButton = TextView(this).apply {
             text = "FIT"
             textSize = 12f
@@ -201,6 +220,53 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+
+    private fun attachExternalSubtitle(uri: Uri) {
+        val displayName = queryDisplayName(uri)
+        if (!displayName.endsWith(".srt", ignoreCase = true)) {
+            android.widget.Toast.makeText(this, "Please choose an .srt subtitle file", android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        try {
+            contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (_: Exception) {
+            // Some document providers grant temporary access only; the current playback can still use it.
+        }
+        val currentPlayer = player ?: return
+        val currentPosition = currentPlayer.currentPosition.coerceAtLeast(0L)
+        val wasPlaying = currentPlayer.isPlaying || currentPlayer.playWhenReady
+        val videoUri = intent.data ?: return
+        val subtitle = MediaItem.SubtitleConfiguration.Builder(uri)
+            .setMimeType(MimeTypes.APPLICATION_SUBRIP)
+            .setLanguage("und")
+            .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+            .build()
+        val updatedItem = MediaItem.Builder()
+            .setUri(videoUri)
+            .setSubtitleConfigurations(listOf(subtitle))
+            .build()
+        externalSubtitleUri = uri
+        currentPlayer.setMediaItem(updatedItem, currentPosition)
+        currentPlayer.prepare()
+        currentPlayer.playWhenReady = wasPlaying
+        android.widget.Toast.makeText(this, "Subtitle loaded: $displayName", android.widget.Toast.LENGTH_SHORT).show()
+    }
+
+    private fun queryDisplayName(uri: Uri): String {
+        var name = uri.lastPathSegment ?: "subtitle"
+        var cursor: Cursor? = null
+        try {
+            cursor = contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            if (cursor != null && cursor.moveToFirst()) {
+                val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (index >= 0) name = cursor.getString(index) ?: name
+            }
+        } catch (_: Exception) {
+        } finally {
+            cursor?.close()
+        }
+        return name
+    }
 
     private fun subtitlePrefs() = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
 
