@@ -78,13 +78,10 @@ class MainActivity : AppCompatActivity() {
     private val thumbnailLoads = ConcurrentHashMap.newKeySet<String>()
     private val recentPrefs by lazy { getSharedPreferences("gleeshplayer_history", MODE_PRIVATE) }
     private var pendingWriteAction: (() -> Unit)? = null
-    private var pendingDeleteAction: (() -> Unit)? = null
     private val deletePermissionRequest = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
-            pendingDeleteAction?.invoke()
             android.widget.Toast.makeText(this, "Deleted", android.widget.Toast.LENGTH_SHORT).show()
         }
-        pendingDeleteAction = null
         loadLibrary()
     }
     private val writePermissionRequest = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
@@ -706,11 +703,9 @@ class MainActivity : AppCompatActivity() {
                 val uris = videos.map { it.uri }.distinct()
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     try {
-                        pendingDeleteAction = { loadLibrary() }
                         val request = MediaStore.createDeleteRequest(contentResolver, uris)
                         deletePermissionRequest.launch(IntentSenderRequest.Builder(request.intentSender).build())
                     } catch (_: Exception) {
-                        pendingDeleteAction = null
                         android.widget.Toast.makeText(this, "Could not request delete permission", android.widget.Toast.LENGTH_LONG).show()
                     }
                 } else {
