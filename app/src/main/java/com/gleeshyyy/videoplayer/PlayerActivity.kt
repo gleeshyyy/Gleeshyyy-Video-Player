@@ -516,8 +516,10 @@ class PlayerActivity : AppCompatActivity() {
                     videoKey = activeUri.toString()
                     playlistIndex = playlistUris.indexOf(activeUri).takeIf { it >= 0 } ?: playlistIndex
                     remember(videoKey)
-                    resumePromptVisible = false
-                    resumeBanner.visibility = View.GONE
+                    if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) {
+                        resumePromptVisible = false
+                        resumeBanner.visibility = View.GONE
+                    }
                 }
                 override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
                     val mode = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getInt("playback_end_behavior", 0)
