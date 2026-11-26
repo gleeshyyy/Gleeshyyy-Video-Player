@@ -55,6 +55,12 @@ class PlayerActivity : AppCompatActivity() {
     private var longPressSpeedActive = false
     private var longPressSpeed = 2.0f
     private lateinit var audioManager: AudioManager
+    private lateinit var feedbackLabel: TextView
+    private lateinit var feedbackBar: android.widget.ProgressBar
+    private val feedbackHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var scrubStartPosition = 0L
+    private var scrubPreviewPosition = 0L
+    private var gestureStartX = 0f
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -177,6 +183,7 @@ class PlayerActivity : AppCompatActivity() {
             override fun onLongPress(e: MotionEvent) {
                 player?.setPlaybackSpeed(longPressSpeed)
                 longPressSpeedActive = true
+                showGestureFeedback("${longPressSpeed.toInt()}× playing…", 100, true)
             }
         })
         gestureLayer = View(this).apply {
@@ -187,10 +194,48 @@ class PlayerActivity : AppCompatActivity() {
             }
         }
         playbackArea.addView(gestureLayer, FrameLayout.LayoutParams(-1, -1))
+        val feedback = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dpPlayer(20), dpPlayer(12), dpPlayer(20), dpPlayer(12))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(0xCC101820.toInt())
+                cornerRadius = dpPlayer(14).toFloat()
+            }
+            visibility = View.GONE
+            isClickable = false
+        }
+        feedbackLabel = TextView(this).apply {
+            textSize = 14f
+            setTextColor(android.graphics.Color.WHITE)
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+        }
+        feedbackBar = android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 100
+            progress = 50
+            progressTintList = android.content.res.ColorStateList.valueOf(palette.accent)
+            progressBackgroundTintList = android.content.res.ColorStateList.valueOf(0xFF52606A.toInt())
+        }
+        feedback.addView(feedbackLabel)
+        feedback.addView(feedbackBar, LinearLayout.LayoutParams(dpPlayer(150), dpPlayer(7)).apply { topMargin = dpPlayer(9) })
+        playbackArea.addView(feedback, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
         root.addView(playbackArea, LinearLayout.LayoutParams(-1, 0, 1f))
         audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         gestureBrightness = currentBrightness()
         setContentView(root)
+        playerView.subtitleView?.setOnTouchListener { view, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> { view.tag = event.rawY - view.translationY; true }
+                MotionEvent.ACTION_MOVE -> {
+                    val start = (view.tag as? Float) ?: event.rawY
+                    view.translationY = (event.rawY - start).coerceIn(-playerView.height * .45f, playerView.height * .45f)
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> true
+                else -> true
+            }
+        }
         window.statusBarColor = palette.background
         window.navigationBarColor = palette.background
         updateSystemBars()
@@ -381,6 +426,9 @@ class PlayerActivity : AppCompatActivity() {
             MotionEvent.ACTION_DOWN -> {
                 lastGestureX = event.x
                 lastGestureY = event.y
+                gestureStartX = event.x
+                scrubStartPosition = player?.currentPosition ?: 0L
+                scrubPreviewPosition = scrubStartPosition
                 gestureMode = 0
                 gestureVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() /
                     audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
@@ -397,14 +445,16 @@ class PlayerActivity : AppCompatActivity() {
                     1 -> {
                         val duration = player?.duration ?: 0L
                         if (duration > 0L) {
-                            val target = ((player?.currentPosition ?: 0L) + (dx * 55f).toLong())
+                            scrubPreviewPosition = (scrubStartPosition + ((event.x - gestureStartX) * 55f).toLong())
                                 .coerceIn(0L, duration)
-                            player?.seekTo(target)
+                            showGestureFeedback("SEEK  ${formatGestureTime(scrubPreviewPosition)} / ${formatGestureTime(duration)}",
+                                if (duration > 0) (scrubPreviewPosition * 100 / duration).toInt() else 0, true)
                         }
                     }
                     2 -> {
                         gestureBrightness = (gestureBrightness - dy / height).coerceIn(0.05f, 1f)
                         window.attributes = window.attributes.apply { screenBrightness = gestureBrightness }
+                        showGestureFeedback("BRIGHTNESS  ${(gestureBrightness * 100).toInt()}%", (gestureBrightness * 100).toInt(), true)
                     }
                     3 -> {
                         val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
@@ -414,6 +464,7 @@ class PlayerActivity : AppCompatActivity() {
                             (gestureVolume * max).toInt().coerceIn(0, max),
                             0
                         )
+                        showGestureFeedback("VOLUME  ${(gestureVolume * 100).toInt()}%", (gestureVolume * 100).toInt(), true)
                     }
                 }
                 lastGestureX = event.x
@@ -421,15 +472,39 @@ class PlayerActivity : AppCompatActivity() {
                 return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                val completedMode = gestureMode
+                if (completedMode == 1 && event.actionMasked == MotionEvent.ACTION_UP) {
+                    player?.seekTo(scrubPreviewPosition)
+                }
                 gestureMode = 0
                 if (longPressSpeedActive) {
                     player?.setPlaybackSpeed(playbackSpeeds[playbackSpeedIndex])
                     longPressSpeedActive = false
                 }
+                if (completedMode != 0 || longPressSpeedActive) hideGestureFeedbackSoon()
                 return true
             }
         }
         return true
+    }
+
+    private fun showGestureFeedback(label: String, progress: Int, keepVisible: Boolean) {
+        if (!::feedbackLabel.isInitialized) return
+        feedbackLabel.text = label
+        feedbackBar.progress = progress.coerceIn(0, 100)
+        (feedbackLabel.parent as? View)?.visibility = View.VISIBLE
+        feedbackHandler.removeCallbacksAndMessages(null)
+        if (!keepVisible) feedbackHandler.postDelayed({ (feedbackLabel.parent as? View)?.visibility = View.GONE }, 1100L)
+    }
+
+    private fun hideGestureFeedbackSoon() {
+        feedbackHandler.removeCallbacksAndMessages(null)
+        feedbackHandler.postDelayed({ (feedbackLabel.parent as? View)?.visibility = View.GONE }, 650L)
+    }
+
+    private fun formatGestureTime(position: Long): String {
+        val seconds = position / 1000L
+        return String.format("%d:%02d", seconds / 60L, seconds % 60L)
     }
 
     private fun currentBrightness(): Float {
