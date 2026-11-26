@@ -749,6 +749,7 @@ class MainActivity : AppCompatActivity() {
                 text = label
                 textSize = 15f
                 setTextColor(palette.text)
+                buttonTintList = android.content.res.ColorStateList.valueOf(palette.accent)
                 id = View.generateViewId()
                 isChecked = sortMode == index
                 tag = index
@@ -794,9 +795,13 @@ class MainActivity : AppCompatActivity() {
         orderRow.addView(descending, LinearLayout.LayoutParams(0, -2, 1f))
         panel.addView(orderRow)
         updateOrderButtons()
-        val dialog = AlertDialog.Builder(this).setTitle("Sort videos").setView(panel).setNegativeButton("Close", null).create()
+        val dialog = AlertDialog.Builder(this)
+            .setCustomTitle(text("Sort videos", 20f, palette.text, true))
+            .setView(panel)
+            .setNegativeButton("Close", null)
+            .create()
         dialog.setOnShowListener {
-            dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(palette.surface))
+            dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(palette.background))
             dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(palette.accent)
         }
         dialog.show()
