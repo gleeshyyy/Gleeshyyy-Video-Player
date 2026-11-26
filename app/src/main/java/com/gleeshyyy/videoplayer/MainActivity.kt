@@ -346,7 +346,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        sectionTitle("Recently played")
+        if (getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getBoolean("show_history", true)) {\n            sectionTitle("Recently played")
         val recentIds = recentPrefs.getString("recent", "[]") ?: "[]"
         val recentUris = try { JSONArray(recentIds).let { arr -> (0 until arr.length()).map { arr.getString(it) } } } catch (_: Exception) { emptyList() }
         val recent = recentUris.mapNotNull { uri -> allVideos.firstOrNull { it.uri.toString() == uri } }.distinctBy { it.uri }.take(10)
@@ -368,7 +368,7 @@ class MainActivity : AppCompatActivity() {
             content.addView(horizontal)
         }
 
-        sectionTitle("Folders")
+        }\n\n        sectionTitle("Folders")
         val folders = allVideos.groupBy { it.folderPath }.toSortedMap(String.CASE_INSENSITIVE_ORDER)
         if (folders.isEmpty()) {
             content.addView(text("No videos found. Allow video access or add videos to your device.", 14f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(8), 0, dp(18)) })
