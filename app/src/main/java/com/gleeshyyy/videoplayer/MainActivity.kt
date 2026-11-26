@@ -49,6 +49,8 @@ class MainActivity : AppCompatActivity() {
     private var searchQuery = ""
     private var libraryLoaded = false
     private val sortLabels = listOf("Recent", "A–Z", "Longest")
+    private val libraryExecutor = Executors.newSingleThreadExecutor()
+    private var libraryLoadGeneration = 0
     private val thumbnailExecutor = Executors.newFixedThreadPool(2)
     private val thumbnailHandler = Handler(Looper.getMainLooper())
     private val thumbnailCache = object : LruCache<String, Bitmap>(4 * 1024) {
@@ -154,10 +156,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadLibrary() {
-        allVideos = if (hasVideoPermission()) queryVideos() else emptyList()
-        libraryLoaded = true
-        selectedFolder = null
-        renderHome()
+        val generation = ++libraryLoadGeneration
+        content.removeAllViews()
+        content.addView(text("Scanning your videos…", 15f, 0xFF8997A1.toInt()).apply {
+            setPadding(0, dp(28), 0, dp(12))
+        })
+        libraryExecutor.execute {
+            val videos = if (hasVideoPermission()) queryVideos() else emptyList()
+            thumbnailHandler.post {
+                if (isFinishing || isDestroyed || generation != libraryLoadGeneration) return@post
+                allVideos = videos
+                libraryLoaded = true
+                selectedFolder = null
+                renderHome()
+            }
+        }
     }
 
     private fun queryVideos(): List<VideoItem> {
@@ -444,6 +457,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        libraryLoadGeneration++
+        libraryExecutor.shutdownNow()
         thumbnailExecutor.shutdownNow()
         super.onDestroy()
     }
