@@ -49,6 +49,21 @@ class PlayerActivity : AppCompatActivity() {
         result.data?.data?.let { attachExternalSubtitle(it) }
     }
     private var externalSubtitleName: String? = null
+    private fun subtitleKey(uri: Uri) = "external_subtitle_" + uri.toString()
+    private fun savedSubtitleUri(uri: Uri): Uri? = subtitlePrefs().getString(subtitleKey(uri), null)?.let { runCatching { Uri.parse(it) }.getOrNull() }
+    private fun mediaItemFor(uri: Uri): MediaItem {
+        val builder = MediaItem.Builder().setUri(uri)
+        savedSubtitleUri(uri)?.let { subtitleUri ->
+            builder.setSubtitleConfigurations(listOf(
+                MediaItem.SubtitleConfiguration.Builder(subtitleUri)
+                    .setMimeType(MimeTypes.APPLICATION_SUBRIP)
+                    .setLanguage("und")
+                    .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+                    .build()
+            ))
+        }
+        return builder.build()
+    }
     private lateinit var subtitleFileLabel: TextView
     private lateinit var progressSeekBar: SeekBar
     private lateinit var currentTimeLabel: TextView
@@ -551,6 +566,9 @@ class PlayerActivity : AppCompatActivity() {
         }
         player = ExoPlayer.Builder(this).build().also {
             playerView.player = it
+            it.trackSelectionParameters = it.trackSelectionParameters.buildUpon()
+                .setSelectUndeterminedTextLanguage(true)
+                .build()
             it.addListener(object : Player.Listener {
                 override fun onCues(cueGroup: CueGroup) {
                     val line = cueGroup.cues.mapNotNull { cue -> cue.text?.toString()?.takeIf { value -> value.isNotBlank() } }
@@ -584,7 +602,9 @@ class PlayerActivity : AppCompatActivity() {
                     if (playbackState == Player.STATE_ENDED) finish()
                 }
             })
-            it.setMediaItems(playlistUris.map { itemUri -> MediaItem.fromUri(itemUri) }, playlistIndex, resumePosition)
+            it.setMediaItems(playlistUris.map { itemUri -> mediaItemFor(itemUri) }, playlistIndex, resumePosition)
+            externalSubtitleUri = savedSubtitleUri(uri)
+            externalSubtitleName = externalSubtitleUri?.let { queryDisplayName(it) }
             it.prepare()
             applyEndBehavior(false)
             progressUpdater.run()
@@ -608,7 +628,7 @@ class PlayerActivity : AppCompatActivity() {
         try {
             contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         } catch (_: Exception) {
-            // Some document providers grant temporary access only; the current playback can still use it.
+            android.widget.Toast.makeText(this, "This file provider does not allow saved subtitle access; it may not remain available after closing.", android.widget.Toast.LENGTH_LONG).show()
         }
         val currentPlayer = player ?: return
         val currentPosition = currentPlayer.currentPosition.coerceAtLeast(0L)
@@ -623,6 +643,7 @@ class PlayerActivity : AppCompatActivity() {
             .setUri(videoUri)
             .setSubtitleConfigurations(listOf(subtitle))
             .build()
+        subtitlePrefs().edit().putString(subtitleKey(videoUri), uri.toString()).apply()
         externalSubtitleUri = uri
         externalSubtitleName = displayName
         if (::subtitleFileLabel.isInitialized) {
@@ -1184,7 +1205,7 @@ class PlayerActivity : AppCompatActivity() {
         if (reload) {
             val position = current.currentPosition.coerceAtLeast(0L)
             val wasPlaying = current.isPlaying || current.playWhenReady
-            current.setMediaItems(playlistUris.map { MediaItem.fromUri(it) }, playlistIndex, position)
+            current.setMediaItems(playlistUris.map { mediaItemFor(it) }, playlistIndex, position)
             current.prepare()
             current.playWhenReady = wasPlaying
         }
