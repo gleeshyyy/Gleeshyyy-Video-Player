@@ -516,7 +516,22 @@ class MainActivity : AppCompatActivity() {
 
         if (selectedTab == 1) {
             addRecentlyPlayedSection()
-            sectionTitle("All videos · " + allVideos.size)
+            val videoHeading = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(15), 0, dp(8))
+            }
+            videoHeading.addView(text("All videos · " + allVideos.size, 17f, palette.text, true), LinearLayout.LayoutParams(0, -2, 1f))
+            videoHeading.addView(TextView(this).apply {
+                text = "↕"
+                textSize = 25f
+                setTextColor(palette.accent)
+                gravity = Gravity.CENTER
+                contentDescription = "Sort videos"
+                setPadding(dp(12), 0, dp(5), 0)
+                setOnClickListener { showSortOptions() }
+            })
+            content.addView(videoHeading)
             val videos = sortVideos(allVideos.filter { searchQuery.isBlank() || it.title.contains(searchQuery, true) || it.folder.contains(searchQuery, true) })
             if (videos.isEmpty()) content.addView(text("No videos found.", 14f, palette.muted).apply { setPadding(0, dp(8), 0, dp(18)) })
             else videos.forEach { addVideoRow(it) }
