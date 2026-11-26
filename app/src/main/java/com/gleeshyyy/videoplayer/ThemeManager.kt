@@ -22,6 +22,21 @@ object ThemeManager {
             else -> AppCompatDelegate.MODE_NIGHT_NO
         })
     }
+
+    private fun decodeSmall(context:Context, uri:String?):Bitmap? {
+        if(uri.isNullOrBlank()) return null
+        return try {
+            val resolver=context.contentResolver
+            val parsed=Uri.parse(uri)
+            val bounds=BitmapFactory.Options().apply { inJustDecodeBounds=true }
+            resolver.openInputStream(parsed)?.use { BitmapFactory.decodeStream(it,null,bounds) }
+            var sample=1
+            while(bounds.outWidth/sample>1600 || bounds.outHeight/sample>1600) sample*=2
+            val options=BitmapFactory.Options().apply { inSampleSize=sample.coerceAtLeast(1); inPreferredConfig=Bitmap.Config.RGB_565 }
+            resolver.openInputStream(parsed)?.use { BitmapFactory.decodeStream(it,null,options) }
+        } catch(_:Exception){null}
+    }
+
     fun palette(context:Context):PlayerPalette {
         val p=context.getSharedPreferences("gleeshplayer_settings",Context.MODE_PRIVATE)
         val mode=p.getString("theme_mode","dark") ?: "dark"
@@ -35,25 +50,43 @@ object ThemeManager {
         return if(dark) PlayerPalette(Color.rgb(8,13,18),Color.rgb(17,26,34),Color.rgb(31,43,53),Color.rgb(241,245,247),Color.rgb(153,166,175),accent,Color.WHITE,true)
         else PlayerPalette(Color.rgb(246,248,249),Color.WHITE,Color.rgb(231,236,239),Color.rgb(25,32,38),Color.rgb(91,103,112),accent,Color.rgb(18,27,34),false)
     }
-    fun loadPicture(context:Context,uri:String?):Bitmap?=try {
-        if(uri.isNullOrBlank()) null else context.contentResolver.openInputStream(Uri.parse(uri))?.use { BitmapFactory.decodeStream(it) }
-    } catch(_:Exception){null}
+
+    fun loadPicture(context:Context,uri:String?):Bitmap?=decodeSmall(context,uri)
+
     fun pictureIsDark(context:Context,uri:String?):Boolean {
-        val bitmap=loadPicture(context,uri) ?: return true
-        val sample=Bitmap.createScaledBitmap(bitmap,1,1,true)
-        val c=sample.getPixel(0,0)
-        if(sample!==bitmap) sample.recycle()
+        val bitmap=decodeSmall(context,uri) ?: return true
+        val c=averageColor(bitmap)
         bitmap.recycle()
         return (Color.red(c)*.299+Color.green(c)*.587+Color.blue(c)*.114)<145
     }
+
     fun pictureAccent(context:Context,uri:String?):Int {
-        val bitmap=loadPicture(context,uri) ?: return Color.rgb(32,214,107)
-        val sample=Bitmap.createScaledBitmap(bitmap,1,1,true)
-        val c=sample.getPixel(0,0)
-        if(sample!==bitmap) sample.recycle()
+        val bitmap=decodeSmall(context,uri) ?: return Color.rgb(32,214,107)
+        val c=averageColor(bitmap)
         bitmap.recycle()
-        return Color.rgb((Color.red(c)*1.2f).toInt().coerceAtMost(255),(Color.green(c)*1.2f).toInt().coerceAtMost(255),(Color.blue(c)*1.2f).toInt().coerceAtMost(255))
+        val r=Color.red(c); val g=Color.green(c); val b=Color.blue(c)
+        val max=maxOf(r,g,b); val min=minOf(r,g,b)
+        val saturation=if(max==0) 0f else (max-min).toFloat()/max
+        return if(saturation<0.12f) Color.rgb(32,214,107) else Color.rgb((r*1.15f).toInt().coerceAtMost(255),(g*1.15f).toInt().coerceAtMost(255),(b*1.15f).toInt().coerceAtMost(255))
     }
+
+    private fun averageColor(bitmap:Bitmap):Int {
+        var red=0L; var green=0L; var blue=0L; var count=0L
+        val step=maxOf(1,bitmap.width/40)
+        var y=0
+        while(y<bitmap.height) {
+            var x=0
+            while(x<bitmap.width) {
+                val c=bitmap.getPixel(x,y)
+                red+=Color.red(c); green+=Color.green(c); blue+=Color.blue(c); count++
+                x+=step
+            }
+            y+=step
+        }
+        if(count==0L) return Color.DKGRAY
+        return Color.rgb((red/count).toInt(),(green/count).toInt(),(blue/count).toInt())
+    }
+
     fun blur(view:View,radius:Float) {
         if(Build.VERSION.SDK_INT>=31) view.setRenderEffect(if(radius>0f) RenderEffect.createBlurEffect(radius,radius,Shader.TileMode.CLAMP) else null)
     }
