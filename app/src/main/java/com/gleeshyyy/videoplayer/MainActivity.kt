@@ -257,6 +257,9 @@ class MainActivity : AppCompatActivity() {
         }
         bar.addView(item("▰", "Folders", 0), LinearLayout.LayoutParams(0, -1, 1f))
         bar.addView(item("▶", "Videos", 1), LinearLayout.LayoutParams(0, -1, 1f))
+        bar.addView(item("🌐", "Stream", 2).apply {
+            setOnClickListener { startActivity(Intent(this@MainActivity, StreamActivity::class.java)) }
+        }, LinearLayout.LayoutParams(0, -1, 1f))
         return bar
     }
 
