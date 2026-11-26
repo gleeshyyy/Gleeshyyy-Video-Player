@@ -96,6 +96,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onPause() {
         savePosition()
+        player?.pause()
         if (::playerView.isInitialized) playerView.onPause()
         super.onPause()
     }
