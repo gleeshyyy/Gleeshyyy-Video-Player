@@ -9,10 +9,19 @@ import android.os.Build
 import android.view.View
 import android.graphics.RenderEffect
 import android.graphics.Shader
+import androidx.appcompat.app.AppCompatDelegate
 
 data class PlayerPalette(val background:Int,val surface:Int,val raised:Int,val text:Int,val muted:Int,val accent:Int,val brandText:Int,val isDark:Boolean)
 
 object ThemeManager {
+    fun applySystemMode(context:Context) {
+        val mode=context.getSharedPreferences("gleeshplayer_settings",Context.MODE_PRIVATE).getString("theme_mode","dark")
+        AppCompatDelegate.setDefaultNightMode(when(mode) {
+            "light" -> AppCompatDelegate.MODE_NIGHT_NO
+            "auto" -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+            else -> AppCompatDelegate.MODE_NIGHT_NO
+        })
+    }
     fun palette(context:Context):PlayerPalette {
         val p=context.getSharedPreferences("gleeshplayer_settings",Context.MODE_PRIVATE)
         val mode=p.getString("theme_mode","dark") ?: "dark"
