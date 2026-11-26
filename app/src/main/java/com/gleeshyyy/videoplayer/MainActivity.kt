@@ -87,7 +87,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
-        showBrandSplash()
+        showVideoLibrary()
     }
 
     override fun onResume() {
