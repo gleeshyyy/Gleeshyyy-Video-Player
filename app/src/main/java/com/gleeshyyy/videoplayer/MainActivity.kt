@@ -57,6 +57,8 @@ class MainActivity : AppCompatActivity() {
     private var libraryLoadGeneration = 0
     private val thumbnailExecutor = Executors.newFixedThreadPool(2)
     private val thumbnailHandler = Handler(Looper.getMainLooper())
+    private val wallpaperExecutor = Executors.newSingleThreadExecutor()
+    private var wallpaperRequest = 0
     private val thumbnailCache = object : LruCache<String, Bitmap>(4 * 1024) {
         override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount / 1024
     }
@@ -150,7 +152,7 @@ class MainActivity : AppCompatActivity() {
         frame.addView(libraryScroll, FrameLayout.LayoutParams(-1, -1))
         content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(22), dp(20), dp(30))
+            setPadding(dp(12), dp(10), dp(12), dp(18))
         }
         libraryScroll.addView(content)
         setContentView(frame)
@@ -169,15 +171,29 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyLibraryTheme() {
-        val p = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
-        val picture = if (p.getString("theme_mode", "dark") == "picture") ThemeManager.loadPicture(this, p.getString("theme_picture", null)) else null
-        libraryBackground.setImageBitmap(picture)
-        val transparency = p.getInt("theme_transparency", 35).coerceIn(0, 100)
-        libraryBackground.alpha = if (picture == null) 1f else (1f - transparency / 100f * .55f).coerceIn(.35f, 1f)
-        ThemeManager.blur(libraryBackground, p.getInt("theme_blur", 0).toFloat())
-        libraryScroll.setBackgroundColor(if (picture == null) palette.background else Color.TRANSPARENT)
+        val prefs = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+        val isPicture = prefs.getString("theme_mode", "dark") == "picture"
+        val pictureUri = prefs.getString("theme_picture", null)
+        val transparency = prefs.getInt("theme_transparency", 35).coerceIn(0, 100)
+        val blurRadius = prefs.getInt("theme_blur", 0).coerceIn(0, 6).toFloat()
+        val request = ++wallpaperRequest
+        libraryBackground.setImageDrawable(null)
+        libraryBackground.setBackgroundColor(palette.background)
+        libraryBackground.alpha = 1f
+        libraryScroll.setBackgroundColor(if (isPicture) Color.TRANSPARENT else palette.background)
         window.statusBarColor = palette.background
         window.navigationBarColor = palette.background
+        if (!isPicture || pictureUri.isNullOrBlank()) return
+        // Decode and read the wallpaper on a worker thread, never on the UI thread.
+        wallpaperExecutor.execute {
+            val bitmap = ThemeManager.loadPicture(this, pictureUri)
+            thumbnailHandler.post {
+                if (isFinishing || isDestroyed || request != wallpaperRequest) return@post
+                libraryBackground.setImageBitmap(bitmap)
+                libraryBackground.alpha = (1f - transparency / 100f * .55f).coerceIn(.35f, 1f)
+                ThemeManager.blur(libraryBackground, blurRadius)
+            }
+        }
     }
 
     private fun requiredPermissions(): Array<String> = when {
@@ -318,9 +334,9 @@ class MainActivity : AppCompatActivity() {
                 setSpan(android.text.style.ForegroundColorSpan(palette.brandText), 6, length, 0)
                 setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, length, 0)
             }
-            textSize = 25f
+            textSize = 22f
             setBackgroundColor(Color.TRANSPARENT)
-            setPadding(dp(12), dp(8), dp(12), dp(8))
+            setPadding(dp(6), dp(4), dp(6), dp(4))
         }
         header.addView(brand, LinearLayout.LayoutParams(0, -2, 1f))
         val sort = TextView(this).apply {
@@ -390,7 +406,7 @@ class MainActivity : AppCompatActivity() {
             addView(clearSearch)
         }
         content.addView(searchRow, LinearLayout.LayoutParams(-1, -2).apply {
-            topMargin = dp(14)
+            topMargin = dp(8)
         })
 
         if (folder != null) {
@@ -410,7 +426,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        content.addView(text("Your videos", 29f, palette.text, true).apply { setPadding(0, dp(25), 0, dp(2)) })
+        content.addView(text("Your videos", 25f, palette.text, true).apply { setPadding(0, dp(10), 0, dp(1)) })
         content.addView(text("${allVideos.size} videos on this device", 13f, palette.muted).apply { setPadding(0, 0, 0, dp(6)) })
         if (scanInProgress) content.addView(text("Updating video library…", 11f, palette.muted).apply { setPadding(0, 0, 0, dp(14)) })
 
@@ -465,17 +481,17 @@ class MainActivity : AppCompatActivity() {
                 val row = LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
-                    setPadding(dp(14), dp(13), dp(14), dp(13))
+                    setPadding(dp(11), dp(9), dp(11), dp(9))
                     setBackgroundColor(panelBackground())
                     setOnClickListener { selectedFolder = path; renderHome() }
                 }
                 val icon = text("▣", 25f, palette.accent, true)
                 row.addView(icon)
                 val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), 0, 0, 0) }
-                labels.addView(text(name, 15f, palette.text, true))
+                labels.addView(text(name, 14f, palette.text, true))
                 val parentPath = path.trimEnd('/').substringBeforeLast('/', "Internal storage").ifBlank { "Internal storage" }
-                labels.addView(text(parentPath, 11f, palette.muted))
-                labels.addView(text("${videos.size} videos", 12f, palette.muted))
+                labels.addView(text(parentPath, 10f, palette.muted))
+                labels.addView(text("${videos.size} videos", 11f, palette.muted))
                 row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
                 row.addView(text("›", 25f, palette.muted))
                 val params = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) }
@@ -495,7 +511,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun sectionTitle(value: String) {
         content.addView(text(value, 19f, palette.text, true).apply {
-            setPadding(0, dp(24), 0, dp(12))
+            setPadding(0, dp(15), 0, dp(8))
         })
     }
 
