@@ -266,6 +266,18 @@ class SettingsActivity : AppCompatActivity() {
                     dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)?.setTextColor(palette.accent)
                     dialog.findViewById<android.widget.TextView>(androidx.appcompat.R.id.alertTitle)?.setTextColor(palette.text)
                     dialog.findViewById<android.widget.TextView>(android.R.id.message)?.setTextColor(palette.muted)
+                    // Android's default single-choice row text can stay dark when the
+                    // dialog surface is overridden for GleeshPlayer's dark palette.
+                    val list = dialog.listView
+                    for (i in 0 until list.childCount) {
+                        (list.getChildAt(i) as? android.widget.TextView)?.setTextColor(palette.text)
+                    }
+                    list.setOnHierarchyChangeListener(object : android.view.ViewGroup.OnHierarchyChangeListener {
+                        override fun onChildViewAdded(parent: android.view.View?, child: android.view.View?) {
+                            (child as? android.widget.TextView)?.setTextColor(palette.text)
+                        }
+                        override fun onChildViewRemoved(parent: android.view.View?, child: android.view.View?) {}
+                    })
                 }
                 dialog.show()
             }
