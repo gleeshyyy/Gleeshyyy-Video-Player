@@ -59,7 +59,7 @@ class StreamActivity : AppCompatActivity() {
         linkInput = EditText(this).apply {
             hint = "https://..."
             textSize = 14f
-            singleLine = true
+            isSingleLine = true
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
             setTextColor(palette.text)
             setHintTextColor(palette.muted)
