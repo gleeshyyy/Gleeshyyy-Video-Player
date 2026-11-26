@@ -3,72 +3,130 @@ package com.gleeshyyy.videoplayer
 import android.os.Bundle
 import android.view.Gravity
 import android.widget.LinearLayout
+import android.widget.Switch
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 
 class SettingsActivity : AppCompatActivity() {
+    private val prefs by lazy { getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE) }
     private val speeds = listOf(2f, 4f, 8f)
     private val speedLabels = listOf("2×", "4×", "8×")
-    private val prefs by lazy { getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE) }
-    private lateinit var options: LinearLayout
+    private lateinit var root: LinearLayout
+    private lateinit var body: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val root = LinearLayout(this).apply {
+        root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(22), dp(18), dp(22), dp(24))
+            setPadding(dp(20), dp(18), dp(20), dp(24))
             setBackgroundColor(0xFF080D12.toInt())
         }
-        val toolbar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        val back = TextView(this).apply {
-            text = "‹"
-            textSize = 32f
-            setTextColor(0xFF20D66B.toInt())
-            setPadding(0, 0, dp(16), 0)
-            setOnClickListener { finish() }
-        }
-        toolbar.addView(back)
-        toolbar.addView(label("Settings", 25f, 0xFFF1F5F7.toInt(), true))
-        root.addView(toolbar)
-
-        root.addView(label("PLAYER", 12f, 0xFF20D66B.toInt(), true).apply {
-            setPadding(0, dp(34), 0, dp(14))
-        })
-        root.addView(label("Long-press playback speed", 18f, 0xFFF1F5F7.toInt(), true))
-        root.addView(label(
-            "Choose how fast a video plays while you press and hold the screen. Normal speed returns when you release.",
-            13f, 0xFF8997A1.toInt()
-        ).apply { setPadding(0, dp(7), 0, dp(18)) })
-
-        options = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        root.addView(options)
-        setContentView(root)
-        renderOptions()
+        val scroll = android.widget.ScrollView(this).apply { isFillViewport = true; addView(root) }
+        setContentView(scroll)
+        showMenu()
     }
 
-    private fun renderOptions() {
-        options.removeAllViews()
-        val selected = prefs.getFloat("long_press_speed", 2f)
-        speeds.forEachIndexed { index, speed ->
-            val active = selected == speed
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(16), dp(17), dp(16), dp(17))
-                setBackgroundColor(if (active) 0xFF153322.toInt() else 0xFF111A22.toInt())
-                setOnClickListener {
-                    prefs.edit().putFloat("long_press_speed", speed).apply()
-                    renderOptions()
-                }
-            }
-            val title = label(speedLabels[index], 17f, if (active) 0xFF20D66B.toInt() else 0xFFF1F5F7.toInt(), true)
-            row.addView(title, LinearLayout.LayoutParams(0, -2, 1f))
-            row.addView(label(if (active) "✓" else "○", 20f, if (active) 0xFF20D66B.toInt() else 0xFF8997A1.toInt(), true))
-            options.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
+    private fun beginPage(title: String, backToMenu: Boolean = false) {
+        root.removeAllViews()
+        val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        bar.addView(label("‹", 32f, 0xFF20D66B.toInt(), true).apply {
+            setPadding(0, 0, dp(16), 0)
+            setOnClickListener { if (backToMenu) showMenu() else finish() }
+        })
+        bar.addView(label(title, 24f, 0xFFF1F5F7.toInt(), true))
+        root.addView(bar)
+        body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        root.addView(body)
+    }
+
+    private fun showMenu() {
+        beginPage("Settings")
+        addMenu("Manage Scan list", "Choose which folders GleeshPlayer scans", "manage")
+        addMenu("Theme", "Appearance and colors", "theme")
+        body.addView(label(" ", 14f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(12), 0, dp(12)) })
+        body.addView(label("GENERAL", 12f, 0xFF20D66B.toInt(), true).apply { setPadding(0, dp(8), 0, dp(10)) })
+        addMenu("General", "Language, history and app information", "general")
+        addMenu("Video", "Playback preferences", "video")
+        addMenu("Subtitles", "Subtitle preferences", "subtitles")
+    }
+
+    private fun addMenu(title: String, subtitle: String, page: String) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(15), dp(16), dp(15))
+            setBackgroundColor(0xFF111A22.toInt())
+            setOnClickListener { showPage(page) }
         }
+        row.addView(label(title, 16f, 0xFFF1F5F7.toInt(), true))
+        row.addView(label(subtitle, 12f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(4), 0, 0) })
+        body.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(9) })
+    }
+
+    private fun showPage(page: String) {
+        when (page) {
+            "general" -> showGeneral()
+            "video" -> showVideo()
+            "theme" -> showPlaceholder("Theme", "Theme options will be added in a future update.")
+            "manage" -> showPlaceholder("Manage Scan list", "Folder scanning controls will be added here.")
+            "subtitles" -> showPlaceholder("Subtitles", "Subtitle settings will be added in a future update.")
+        }
+    }
+
+    private fun showGeneral() {
+        beginPage("General", true)
+        body.addView(label("LANGUAGE", 12f, 0xFF20D66B.toInt(), true).apply { setPadding(0, dp(28), 0, dp(12)) })
+        val language = settingRow("Language", "Coming in the next update")
+        body.addView(language)
+        body.addView(label("HISTORY", 12f, 0xFF20D66B.toInt(), true).apply { setPadding(0, dp(28), 0, dp(12)) })
+        val historyRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(15), dp(14), dp(15), dp(14))
+            setBackgroundColor(0xFF111A22.toInt())
+        }
+        historyRow.addView(label("Show History", 16f, 0xFFF1F5F7.toInt(), true), LinearLayout.LayoutParams(0, -2, 1f))
+        val toggle = Switch(this).apply {
+            isChecked = prefs.getBoolean("show_history", true)
+            setOnCheckedChangeListener { _, checked -> prefs.edit().putBoolean("show_history", checked).apply() }
+        }
+        historyRow.addView(toggle)
+        body.addView(historyRow)
+        body.addView(label("ABOUT", 12f, 0xFF20D66B.toInt(), true).apply { setPadding(0, dp(28), 0, dp(12)) })
+        body.addView(settingRow("Version", BuildConfig.VERSION_NAME))
+        body.addView(settingRow("Developer", "Muhirwa Elyse"))
+        body.addView(settingRow("Assistant Developer", "Lil Ty"))
+    }
+
+    private fun showVideo() {
+        beginPage("Video", true)
+        body.addView(label("PLAYBACK", 12f, 0xFF20D66B.toInt(), true).apply { setPadding(0, dp(28), 0, dp(12)) })
+        body.addView(label("Long-press playback speed", 17f, 0xFFF1F5F7.toInt(), true))
+        body.addView(label("Select the temporary speed used while holding the video. The selected normal playback speed resumes when released.", 13f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(7), 0, dp(16)) })
+        speeds.forEachIndexed { index, speed ->
+            val active = prefs.getFloat("long_press_speed", 2f) == speed
+            val row = settingRow(speedLabels[index], if (active) "Selected ✓" else "Tap to select")
+            row.setOnClickListener {
+                prefs.edit().putFloat("long_press_speed", speed).apply()
+                showVideo()
+            }
+            body.addView(row)
+        }
+    }
+
+    private fun showPlaceholder(title: String, message: String) {
+        beginPage(title, true)
+        body.addView(label(message, 14f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(28), 0, 0) })
+    }
+
+    private fun settingRow(title: String, value: String): LinearLayout {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(15), dp(13), dp(15), dp(13))
+            setBackgroundColor(0xFF111A22.toInt())
+        }
+        row.addView(label(title, 15f, 0xFFF1F5F7.toInt(), true))
+        row.addView(label(value, 12f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(4), 0, 0) })
+        return row
     }
 
     private fun label(value: String, size: Float, color: Int, bold: Boolean = false) =
