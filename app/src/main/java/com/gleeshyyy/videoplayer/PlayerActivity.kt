@@ -21,6 +21,10 @@ import android.widget.TextView
 import android.widget.SeekBar
 import android.widget.Button
 import android.graphics.Typeface
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
+import android.content.Context
 import android.util.TypedValue
 import androidx.appcompat.app.AlertDialog
 import androidx.activity.result.contract.ActivityResultContracts
@@ -29,6 +33,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
 import androidx.media3.common.text.CueGroup
 import androidx.media3.common.C
 import androidx.media3.common.MimeTypes
@@ -69,6 +74,8 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var captionLabel: TextView
     private lateinit var controlsBar: LinearLayout
     private lateinit var playPauseButton: TextView
+    private lateinit var orientationIcon: PhoneOrientationIcon
+    private var videoIsLandscape = false
     private var videoKey: String = ""
     private val playbackSpeeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
     private var playbackSpeedIndex = 2
@@ -105,63 +112,46 @@ class PlayerActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(palette.background)
         }
-        val heading = LinearLayout(this).apply {
+        val playerHeader = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dpPlayer(16), dpPlayer(7), dpPlayer(16), dpPlayer(8))
+            setBackgroundColor(palette.background)
+        }
+        val titleRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(18, 8, 18, 8)
         }
-        val backTitle = TextView(this).apply {
-            text = "‹    $title"
-            textSize = 16f
+        val backButton = TextView(this).apply {
+            text = "‹"
+            textSize = 34f
+            gravity = Gravity.CENTER
             setTextColor(palette.text)
-            maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
-            setPadding(0, 10, 8, 10)
+            contentDescription = "Back to video library"
             setOnClickListener { finish() }
         }
-        heading.addView(backTitle, LinearLayout.LayoutParams(0, -2, 1f))
-        val speedButton = TextView(this).apply {
-            text = "1.0×"
-            textSize = 14f
-            setTextColor(palette.accent)
-            setPadding(12, 10, 4, 10)
-            contentDescription = "Playback speed"
-            setOnClickListener {
-                playbackSpeedIndex = (playbackSpeedIndex + 1) % playbackSpeeds.size
-                val speed = playbackSpeeds[playbackSpeedIndex]
-                text = "${speed}×"
-                player?.setPlaybackSpeed(speed)
-            }
-        }
-        heading.addView(speedButton)
-        val subtitleButton = TextView(this).apply {
-            text = "CC"
-            textSize = 14f
-            setTextColor(palette.accent)
-            setPadding(14, 10, 0, 10)
-            contentDescription = "Subtitle customization"
-            setOnClickListener { showSubtitleCustomization() }
-        }
-        heading.addView(subtitleButton)
-        val fitButton = TextView(this).apply {
-            text = "FIT"
-            textSize = 12f
+        titleRow.addView(backButton, LinearLayout.LayoutParams(dpPlayer(38), dpPlayer(48)))
+        val videoTitle = TextView(this).apply {
+            text = title
+            textSize = 17f
             setTextColor(palette.text)
-            setPadding(12, 10, 4, 10)
-            contentDescription = "Change video aspect ratio"
-            setOnClickListener {
-                resizeModeIndex = (resizeModeIndex + 1) % resizeModes.size
-                playerView.resizeMode = resizeModes[resizeModeIndex]
-                text = resizeLabels[resizeModeIndex]
-            }
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dpPlayer(5), dpPlayer(3), 0, dpPlayer(3))
         }
-        heading.addView(fitButton)
-        val rotateButton = TextView(this).apply {
-            text = "↻"
-            textSize = 22f
-            setTextColor(palette.accent)
-            setPadding(12, 4, 0, 4)
-            contentDescription = "Rotate screen"
+        titleRow.addView(videoTitle, LinearLayout.LayoutParams(0, -2, 1f))
+        playerHeader.addView(titleRow, LinearLayout.LayoutParams(-1, -2))
+
+        val actionRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dpPlayer(38), dpPlayer(4), 0, dpPlayer(2))
+        }
+        orientationIcon = PhoneOrientationIcon(this).apply {
+            setLandscape(videoIsLandscape)
+            contentDescription = "Switch screen orientation"
+            isClickable = true
+            isFocusable = true
             setOnClickListener {
                 requestedOrientation = if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
                     ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -170,8 +160,46 @@ class PlayerActivity : AppCompatActivity() {
                 }
             }
         }
-        heading.addView(rotateButton)
-        root.addView(heading)
+        actionRow.addView(orientationIcon, LinearLayout.LayoutParams(dpPlayer(44), dpPlayer(42)))
+        val subtitleButton = TextView(this).apply {
+            text = "CC"
+            textSize = 15f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setTextColor(palette.accent)
+            contentDescription = "Subtitle customization"
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(palette.raised)
+                cornerRadius = dpPlayer(8).toFloat()
+                setStroke(dpPlayer(1), palette.muted)
+            }
+            setOnClickListener { showSubtitleCustomization() }
+        }
+        actionRow.addView(subtitleButton, LinearLayout.LayoutParams(dpPlayer(46), dpPlayer(36)).apply {
+            marginStart = dpPlayer(12)
+        })
+        val fitButton = TextView(this).apply {
+            text = "FIT"
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setTextColor(palette.text)
+            contentDescription = "Change video aspect ratio"
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(palette.raised)
+                cornerRadius = dpPlayer(8).toFloat()
+            }
+            setOnClickListener {
+                resizeModeIndex = (resizeModeIndex + 1) % resizeModes.size
+                playerView.resizeMode = resizeModes[resizeModeIndex]
+                text = resizeLabels[resizeModeIndex]
+            }
+        }
+        actionRow.addView(fitButton, LinearLayout.LayoutParams(dpPlayer(46), dpPlayer(36)).apply {
+            marginStart = dpPlayer(12)
+        })
+        playerHeader.addView(actionRow, LinearLayout.LayoutParams(-1, -2))
+        root.addView(playerHeader, LinearLayout.LayoutParams(-1, -2))
         playerView = PlayerView(this).apply {
             useController = false
             setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
@@ -195,12 +223,22 @@ class PlayerActivity : AppCompatActivity() {
                     zone < 1f / 3f -> {
                         val current = player?.currentPosition ?: 0L
                         val duration = player?.duration ?: 0L
-                        if (duration > 0L) player?.seekTo((current - 10_000L).coerceIn(0L, duration))
+                        if (duration > 0L) {
+                            val target = (current - 10_000L).coerceIn(0L, duration)
+                            val moved = current - target
+                            player?.seekTo(target)
+                            if (moved > 0L) showGestureFeedback("−\${(moved / 1000L).coerceAtLeast(1L)} seconds", 0, false)
+                        }
                     }
                     zone > 2f / 3f -> {
                         val current = player?.currentPosition ?: 0L
                         val duration = player?.duration ?: 0L
-                        if (duration > 0L) player?.seekTo((current + 10_000L).coerceIn(0L, duration))
+                        if (duration > 0L) {
+                            val target = (current + 10_000L).coerceIn(0L, duration)
+                            val moved = target - current
+                            player?.seekTo(target)
+                            if (moved > 0L) showGestureFeedback("+\${(moved / 1000L).coerceAtLeast(1L)} seconds", 100, false)
+                        }
                     }
                     else -> {
                         player?.let { if (it.isPlaying) it.pause() else it.play() }
@@ -387,6 +425,11 @@ class PlayerActivity : AppCompatActivity() {
                 }
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     playPauseButton.text = if (isPlaying) "Ⅱ" else "▶"
+                }
+                override fun onVideoSizeChanged(videoSize: VideoSize) {
+                    val rotated = videoSize.unappliedRotationDegrees % 180 != 0
+                    videoIsLandscape = if (rotated) videoSize.height > videoSize.width else videoSize.width > videoSize.height
+                    if (::orientationIcon.isInitialized) orientationIcon.setLandscape(videoIsLandscape)
                 }
             })
             it.setMediaItem(MediaItem.fromUri(uri), resumeAt)
@@ -651,6 +694,44 @@ class PlayerActivity : AppCompatActivity() {
         playbackArea.addView(scroll, FrameLayout.LayoutParams(-1, dpPlayer(350), Gravity.BOTTOM))
         scroll.tag = "subtitle_customization_scroll"
         playbackArea.bringChildToFront(scroll)
+    }
+
+    private class PhoneOrientationIcon(context: Context) : View(context) {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private var landscape = false
+
+        fun setLandscape(value: Boolean) {
+            if (landscape != value) {
+                landscape = value
+                invalidate()
+            }
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            val density = resources.displayMetrics.density
+            paint.color = ThemeManager.palette(context).accent
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 2.2f * density
+            val bodyWidth = (if (landscape) 29f else 19f) * density
+            val bodyHeight = (if (landscape) 19f else 29f) * density
+            val left = (width - bodyWidth) / 2f
+            val top = (height - bodyHeight) / 2f
+            val body = RectF(left, top, left + bodyWidth, top + bodyHeight)
+            canvas.drawRoundRect(body, 3.5f * density, 3.5f * density, paint)
+            paint.strokeWidth = 1.2f * density
+            val inset = 3f * density
+            canvas.drawRoundRect(
+                RectF(body.left + inset, body.top + inset, body.right - inset, body.bottom - inset),
+                1.5f * density, 1.5f * density, paint
+            )
+            paint.style = Paint.Style.FILL
+            if (landscape) {
+                canvas.drawCircle(body.right - 1.7f * density, body.centerY(), 0.8f * density, paint)
+            } else {
+                canvas.drawCircle(body.centerX(), body.bottom - 1.7f * density, 0.8f * density, paint)
+            }
+        }
     }
 
     private fun dpPlayer(value: Int): Int = (value * resources.displayMetrics.density).toInt()
