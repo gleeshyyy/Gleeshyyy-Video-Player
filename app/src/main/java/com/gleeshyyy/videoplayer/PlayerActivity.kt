@@ -194,10 +194,7 @@ class PlayerActivity : AppCompatActivity() {
         })
         gestureLayer = View(this).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            setOnTouchListener { _, event ->
-                if (playerView.isControllerFullyVisible) false
-                else handlePlaybackGesture(event)
-            }
+            setOnTouchListener { _, event -> handlePlaybackGesture(event) }
         }
         playbackArea.addView(gestureLayer, FrameLayout.LayoutParams(-1, -1))
         val feedback = LinearLayout(this).apply {
@@ -284,17 +281,17 @@ class PlayerActivity : AppCompatActivity() {
                 setOnClickListener { action() }
             }
         controlsBar.addView(controlButton("⏮", "Rewind 10 seconds") {
-            val current = player ?: return@controlButton
-            current.seekTo((current.currentPosition - 10_000L).coerceAtLeast(0L))
+            player?.let { current -> current.seekTo((current.currentPosition - 10_000L).coerceAtLeast(0L)) }
         }, LinearLayout.LayoutParams(0, -2, 1f))
         playPauseButton = controlButton("Ⅱ", "Play or pause") {
             player?.let { if (it.isPlaying) it.pause() else it.play() }
         }
         controlsBar.addView(playPauseButton, LinearLayout.LayoutParams(0, -2, 1f))
         controlsBar.addView(controlButton("⏭", "Forward 10 seconds") {
-            val current = player ?: return@controlButton
-            val duration = current.duration.coerceAtLeast(0L)
-            current.seekTo((current.currentPosition + 10_000L).coerceAtMost(duration))
+            player?.let { current ->
+                val duration = current.duration.coerceAtLeast(0L)
+                current.seekTo((current.currentPosition + 10_000L).coerceAtMost(duration))
+            }
         }, LinearLayout.LayoutParams(0, -2, 1f))
         root.addView(controlsBar, LinearLayout.LayoutParams(-1, -2))
         audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
@@ -425,7 +422,9 @@ class PlayerActivity : AppCompatActivity() {
     private fun applySubtitleStyle(size: Float, color: Int, position: Int, save: Boolean) {
         captionLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, size)
         captionLabel.setTextColor(color)
-        captionLabel.translationY = -(position.coerceIn(0, 100) / 100f) * playbackArea.height.toFloat()
+        playbackArea.post {
+            captionLabel.translationY = -(position.coerceIn(0, 100) / 100f) * playbackArea.height.toFloat()
+        }
         if (save && subtitleRemembered()) {
             subtitlePrefs().edit().putFloat("subtitle_size", size).putInt("subtitle_color", color)
                 .putInt("subtitle_position", position).apply()
