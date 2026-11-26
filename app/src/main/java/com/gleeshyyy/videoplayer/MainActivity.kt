@@ -10,6 +10,9 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Size
 import android.view.Gravity
+import android.os.Handler
+import android.os.Looper
+import android.widget.FrameLayout
 import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -41,6 +44,27 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        showBrandSplash()
+    }
+
+    private fun showBrandSplash() {
+        val splash = FrameLayout(this).apply {
+            setBackgroundColor(android.graphics.Color.BLACK)
+        }
+        val logo = ImageView(this).apply {
+            setImageResource(R.drawable.gleeshyyy_splash)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            adjustViewBounds = true
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+        }
+        splash.addView(logo, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
+        setContentView(splash)
+        Handler(Looper.getMainLooper()).postDelayed({
+            showVideoLibrary()
+        }, 1400L)
+    }
+
+    private fun showVideoLibrary() {
         val scroll = ScrollView(this).apply {
             setBackgroundColor(0xFF080D12.toInt())
             isFillViewport = true
