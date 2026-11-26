@@ -860,12 +860,16 @@ class PlayerActivity : AppCompatActivity() {
                 textSize = 15f
                 setTextColor(palette.text)
             })
-            if (detail != null) row.addView(TextView(this).apply {
-                text = detail
-                textSize = 12f
-                setTextColor(palette.muted)
-                setPadding(0, dpPlayer(3), 0, 0)
-            })
+            if (detail != null) {
+                val detailView = TextView(this).apply {
+                    text = detail
+                    textSize = 12f
+                    setTextColor(palette.muted)
+                    setPadding(0, dpPlayer(3), 0, 0)
+                }
+                if (title == "Current subtitles") currentSubtitleValueLabel = detailView
+                row.addView(detailView)
+            }
             panel.addView(row, LinearLayout.LayoutParams(-1, -2))
             panel.addView(View(this).apply { setBackgroundColor(0x334C5962) },
                 LinearLayout.LayoutParams(-1, dpPlayer(1)))
