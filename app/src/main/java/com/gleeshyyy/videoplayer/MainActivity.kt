@@ -420,14 +420,59 @@ class MainActivity : AppCompatActivity() {
     private fun renderHome() {
         content.removeAllViews()
         if (searchPage) {
+            val searchHeader = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
             val back = ImageView(this).apply {
                 setImageResource(android.R.drawable.ic_media_previous)
                 imageTintList = android.content.res.ColorStateList.valueOf(palette.accent)
                 contentDescription = "Back to folders"
                 setPadding(dp(10), dp(10), dp(10), dp(10))
-                setOnClickListener { searchPage = false; selectedFolder = null; selectedTab = 0; renderHome() }
+                setOnClickListener { searchPage = false; searchQuery = ""; selectedFolder = null; selectedTab = 0; renderHome() }
             }
-            content.addView(back, LinearLayout.LayoutParams(dp(52), dp(52)))
+            searchHeader.addView(back, LinearLayout.LayoutParams(dp(56), dp(56)))
+            val searchInput = android.widget.EditText(this).apply {
+                hint = "Search videos and folders"
+                setSingleLine(true)
+                textSize = 16f
+                setTextColor(palette.text)
+                setHintTextColor(palette.muted)
+                setPadding(dp(12), dp(8), dp(12), dp(8))
+                setBackground(android.graphics.drawable.GradientDrawable().apply {
+                    setColor(palette.raised)
+                    cornerRadius = dp(10).toFloat()
+                    setStroke(dp(1), palette.muted)
+                })
+                inputType = android.text.InputType.TYPE_CLASS_TEXT
+                setText(searchQuery)
+                setSelection(text?.length ?: 0)
+            }
+            searchHeader.addView(searchInput, LinearLayout.LayoutParams(0, dp(48), 1f))
+            content.addView(searchHeader, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+            val results = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            content.addView(results, LinearLayout.LayoutParams(-1, -2))
+            fun updateResults(query: String) {
+                results.removeAllViews()
+                if (query.isBlank()) {
+                    results.addView(text("Search your videos by name or folder", 13f, palette.muted))
+                    return
+                }
+                val matches = sortVideos(allVideos.filter {
+                    it.title.contains(query, true) || it.folder.contains(query, true) || it.folderPath.contains(query, true)
+                })
+                if (matches.isEmpty()) results.addView(text("No matching videos found.", 14f, palette.muted))
+                else matches.forEach { addVideoRow(it, matches, results) }
+            }
+            updateResults(searchQuery)
+            searchInput.addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    searchQuery = s?.toString().orEmpty()
+                    updateResults(searchQuery)
+                }
+                override fun afterTextChanged(s: android.text.Editable?) {}
+            })
             return
         }
         val folder = selectedFolder
@@ -850,7 +895,7 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    private fun addVideoRow(video: VideoItem, playlist: List<VideoItem> = sortVideos(allVideos)) {
+    private fun addVideoRow(video: VideoItem, playlist: List<VideoItem> = sortVideos(allVideos), target: LinearLayout = content) {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -882,7 +927,7 @@ class MainActivity : AppCompatActivity() {
             setBackgroundResource(android.R.drawable.list_selector_background)
             setOnClickListener { showVideoOptions(video) }
         }, LinearLayout.LayoutParams(dp(52), dp(52)))
-        content.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
+        target.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
     }
 
     private fun thumbnail(video: VideoItem, width: Int, height: Int): FrameLayout {
