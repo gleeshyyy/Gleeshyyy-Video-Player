@@ -940,7 +940,7 @@ class PlayerActivity : AppCompatActivity() {
                 val format = group.getTrackFormat(index)
                 val label = format.label?.takeIf { it.isNotBlank() }
                     ?: format.language?.takeIf { it.isNotBlank() && it != "und" }
-                    ?: if (group.isTrackSelected) "Subtitle ${selections.size}" else "Subtitle ${selections.size}"
+                    ?: "Subtitle ${selections.size}"
                 val name = if (externalSubtitleName != null && format.sampleMimeType == MimeTypes.APPLICATION_SUBRIP)
                     "$label — ${externalSubtitleName}" else label
                 choices.add(name)
@@ -977,7 +977,7 @@ class PlayerActivity : AppCompatActivity() {
             background = android.graphics.drawable.GradientDrawable().apply {
                 setColor(0xE91B2229.toInt())
                 cornerRadius = dpPlayer(12).toFloat()
-                setStroke(dpPlayer(1), 0x553FFFFFF)
+                setStroke(dpPlayer(1), 0x55FFFFFF.toInt())
             }
             tag = "subtitle_delay_controller"
             elevation = dpPlayer(16).toFloat()
