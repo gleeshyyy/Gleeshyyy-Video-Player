@@ -30,6 +30,7 @@ data class VideoItem(
     val uri: android.net.Uri,
     val duration: Long,
     val folder: String,
+    val folderPath: String,
     val dateAdded: Long
 )
 
@@ -156,13 +157,15 @@ class MainActivity : AppCompatActivity() {
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idCol)
                     val path = if (pathCol >= 0) cursor.getString(pathCol).orEmpty() else "Videos/"
-                    val folder = path.trimEnd('/').substringAfterLast('/').ifBlank { "Internal storage" }
+                    val folderPath = path.ifBlank { "Internal storage/" }
+                    val folder = folderPath.trimEnd('/').substringAfterLast('/').ifBlank { "Internal storage" }
                     result += VideoItem(
                         id,
                         cursor.getString(nameCol) ?: "Untitled video",
                         android.content.ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id),
                         cursor.getLong(durationCol),
                         folder,
+                        folderPath,
                         cursor.getLong(dateCol)
                     )
                 }
@@ -256,9 +259,11 @@ class MainActivity : AppCompatActivity() {
                 setOnClickListener { selectedFolder = null; renderHome() }
             }
             content.addView(back)
-            content.addView(text(folder, 26f, 0xFFF1F5F7.toInt(), true))
-            val videos = sortVideos(allVideos.filter {
-                it.folder == folder && (searchQuery.isBlank() || it.title.contains(searchQuery, true))
+            val folderVideos = allVideos.filter { it.folderPath == folder }
+            val folderName = folderVideos.firstOrNull()?.folder ?: "Folder"
+            content.addView(text(folderName, 26f, 0xFFF1F5F7.toInt(), true))
+            val videos = sortVideos(folderVideos.filter {
+                searchQuery.isBlank() || it.title.contains(searchQuery, true)
             })
             content.addView(text("${videos.size} videos", 13f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(5), 0, dp(16)) })
             videos.forEach { addVideoRow(it) }
@@ -307,17 +312,18 @@ class MainActivity : AppCompatActivity() {
         }
 
         sectionTitle("Folders")
-        val folders = allVideos.groupBy { it.folder }.toSortedMap(String.CASE_INSENSITIVE_ORDER)
+        val folders = allVideos.groupBy { it.folderPath }.toSortedMap(String.CASE_INSENSITIVE_ORDER)
         if (folders.isEmpty()) {
             content.addView(text("No videos found. Allow video access or add videos to your device.", 14f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(8), 0, dp(18)) })
         } else {
-            folders.forEach { (name, videos) ->
+            folders.forEach { (path, videos) ->
+                val name = videos.firstOrNull()?.folder ?: "Folder"
                 val row = LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(dp(14), dp(13), dp(14), dp(13))
                     setBackgroundColor(0xFF111A22.toInt())
-                    setOnClickListener { selectedFolder = name; renderHome() }
+                    setOnClickListener { selectedFolder = path; renderHome() }
                 }
                 val icon = text("▣", 25f, 0xFF20D66B.toInt(), true)
                 row.addView(icon)
