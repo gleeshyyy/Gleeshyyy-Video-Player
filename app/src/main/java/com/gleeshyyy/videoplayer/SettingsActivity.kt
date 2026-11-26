@@ -1,6 +1,7 @@
 package com.gleeshyyy.videoplayer
 
 import android.os.Bundle
+import android.content.Intent
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -71,7 +72,7 @@ class SettingsActivity : AppCompatActivity() {
         when (page) {
             "general" -> showGeneral()
             "video" -> showVideo()
-            "theme" -> showPlaceholder("Theme", "Theme options will be added in a future update.")
+            "theme" -> startActivity(Intent(this, ThemeActivity::class.java))
             "manage" -> showManageScanList()
             "subtitles" -> showPlaceholder("Subtitles", "Subtitle settings will be added in a future update.")
         }
