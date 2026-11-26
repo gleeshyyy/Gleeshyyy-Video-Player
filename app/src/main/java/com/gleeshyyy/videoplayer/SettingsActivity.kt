@@ -262,8 +262,9 @@ class SettingsActivity : AppCompatActivity() {
                     .setNegativeButton("Cancel", null)
                     .create()
                 dialog.setOnShowListener {
-                    dialog.window?.setBackgroundDrawableResource(if (palette.isDark) android.R.color.background_dark else android.R.color.background_light)
+                    dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(panelBackground()))
                     dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEGATIVE)?.setTextColor(palette.accent)
+                    dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)?.setTextColor(palette.accent)
                     dialog.findViewById<android.widget.TextView>(androidx.appcompat.R.id.alertTitle)?.setTextColor(palette.text)
                     dialog.findViewById<android.widget.TextView>(android.R.id.message)?.setTextColor(palette.muted)
                 }
