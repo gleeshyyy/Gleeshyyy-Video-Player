@@ -18,6 +18,7 @@ import androidx.media3.ui.PlayerView
 import org.json.JSONArray
 
 class PlayerActivity : AppCompatActivity() {
+    private val palette get() = ThemeManager.palette(this)
     private var player: ExoPlayer? = null
     private lateinit var playerView: PlayerView
     private var videoKey: String = ""
@@ -45,7 +46,7 @@ class PlayerActivity : AppCompatActivity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(0xFF080D12.toInt())
+            setBackgroundColor(palette.background)
         }
         val heading = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -55,7 +56,7 @@ class PlayerActivity : AppCompatActivity() {
         val backTitle = TextView(this).apply {
             text = "‹    $title"
             textSize = 16f
-            setTextColor(0xFFF1F5F7.toInt())
+            setTextColor(palette.text)
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
             setPadding(0, 10, 8, 10)
@@ -65,7 +66,7 @@ class PlayerActivity : AppCompatActivity() {
         val speedButton = TextView(this).apply {
             text = "1.0×"
             textSize = 14f
-            setTextColor(0xFF20D66B.toInt())
+            setTextColor(palette.accent)
             setPadding(12, 10, 4, 10)
             contentDescription = "Playback speed"
             setOnClickListener {
