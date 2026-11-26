@@ -23,6 +23,8 @@ import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AlertDialog
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.core.content.ContextCompat
 import org.json.JSONArray
 import java.util.concurrent.ConcurrentHashMap
@@ -36,6 +38,7 @@ data class VideoItem(
     val folder: String,
     val folderPath: String,
     val dateAdded: Long,
+    val dateModified: Long,
     val width: Int,
     val height: Int,
     val sizeBytes: Long
@@ -44,16 +47,19 @@ data class VideoItem(
 class MainActivity : AppCompatActivity() {
     private lateinit var content: LinearLayout
     private lateinit var libraryScroll: ScrollView
+    private lateinit var swipeRefresh: SwipeRefreshLayout
+    private var refreshStartedAt = 0L
     private lateinit var libraryBackground: ImageView
     private var selectedTab = 0
     private val palette get() = ThemeManager.palette(this)
     private var allVideos: List<VideoItem> = emptyList()
     private var selectedFolder: String? = null
     private var sortMode = 0
+    private var sortAscending = false
     private var searchQuery = ""
     private var libraryLoaded = false
     private var scanInProgress = false
-    private val sortLabels = listOf("Recent", "A–Z", "Longest")
+    private val sortLabels = listOf("Date modified", "A–Z", "Longest")
     private val libraryExecutor = Executors.newSingleThreadExecutor()
     private var libraryLoadGeneration = 0
     private val thumbnailExecutor = Executors.newFixedThreadPool(2)
@@ -152,7 +158,15 @@ class MainActivity : AppCompatActivity() {
         }
         val screen = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         frame.addView(screen, FrameLayout.LayoutParams(-1, -1))
-        screen.addView(libraryScroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        swipeRefresh = SwipeRefreshLayout(this).apply {
+            setColorSchemeColors(palette.accent)
+            setOnRefreshListener {
+                refreshStartedAt = System.currentTimeMillis()
+                if (hasVideoPermission()) loadLibrary() else requestVideoPermission()
+            }
+        }
+        swipeRefresh.addView(libraryScroll, SwipeRefreshLayout.LayoutParams(-1, -1))
+        screen.addView(swipeRefresh, LinearLayout.LayoutParams(-1, 0, 1f))
         content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(10), dp(12), dp(18))
@@ -207,7 +221,7 @@ class MainActivity : AppCompatActivity() {
                         if (parent != null) {
                             val oldIndex = parent.indexOfChild(bar)
                             parent.removeView(bar)
-                            parent.addView(createBottomNavigation(), LinearLayout.LayoutParams(-1, dp(62)), oldIndex)
+                            parent.addView(createBottomNavigation(), oldIndex, LinearLayout.LayoutParams(-1, dp(62)))
                         }
                         libraryScroll.scrollTo(0, 0)
                         renderHome()
@@ -293,6 +307,10 @@ class MainActivity : AppCompatActivity() {
                 scanInProgress = false
                 if (selectedFolder != null && videos.none { it.folderPath == selectedFolder }) selectedFolder = null
                 renderHome()
+                if (swipeRefresh.isRefreshing) {
+                    val remaining = (1200L - (System.currentTimeMillis() - refreshStartedAt)).coerceAtLeast(0L)
+                    thumbnailHandler.postDelayed({ if (::swipeRefresh.isInitialized) swipeRefresh.isRefreshing = false }, remaining)
+                }
             }
         }
     }
@@ -306,7 +324,7 @@ class MainActivity : AppCompatActivity() {
                 val uri = android.net.Uri.parse(item.getString("uri"))
                 VideoItem(item.getLong("id"), item.getString("title"), uri, item.getLong("duration"),
                     item.getString("folder"), item.getString("folderPath"), item.getLong("dateAdded"),
-                    item.optInt("width"), item.optInt("height"), item.optLong("sizeBytes"))
+                    item.optLong("dateModified", item.getLong("dateAdded")), item.optInt("width"), item.optInt("height"), item.optLong("sizeBytes"))
             }.filterNot { it.folderPath in (getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
                 .getStringSet("excluded_scan_folders", emptySet()) ?: emptySet()) }
         } catch (_: Exception) { emptyList() }
@@ -318,7 +336,7 @@ class MainActivity : AppCompatActivity() {
             array.put(org.json.JSONObject().apply {
                 put("id", video.id); put("title", video.title); put("uri", video.uri.toString())
                 put("duration", video.duration); put("folder", video.folder); put("folderPath", video.folderPath)
-                put("dateAdded", video.dateAdded); put("width", video.width); put("height", video.height)
+                put("dateAdded", video.dateAdded); put("dateModified", video.dateModified); put("width", video.width); put("height", video.height)
                 put("sizeBytes", video.sizeBytes)
             })
         }
@@ -333,6 +351,7 @@ class MainActivity : AppCompatActivity() {
             MediaStore.Video.Media.DURATION,
             MediaStore.Video.Media.RELATIVE_PATH,
             MediaStore.Video.Media.DATE_ADDED,
+            MediaStore.Video.Media.DATE_MODIFIED,
             MediaStore.Video.Media.WIDTH,
             MediaStore.Video.Media.HEIGHT,
             MediaStore.Video.Media.SIZE
@@ -348,6 +367,7 @@ class MainActivity : AppCompatActivity() {
                 val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
                 val pathCol = cursor.getColumnIndex(MediaStore.Video.Media.RELATIVE_PATH)
                 val dateCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_ADDED)
+                val modifiedCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_MODIFIED)
                 val widthCol = cursor.getColumnIndex(MediaStore.Video.Media.WIDTH)
                 val heightCol = cursor.getColumnIndex(MediaStore.Video.Media.HEIGHT)
                 val sizeCol = cursor.getColumnIndex(MediaStore.Video.Media.SIZE)
@@ -364,6 +384,7 @@ class MainActivity : AppCompatActivity() {
                         folder,
                         folderPath,
                         cursor.getLong(dateCol),
+                        cursor.getLong(modifiedCol),
                         if (widthCol >= 0) cursor.getInt(widthCol) else 0,
                         if (heightCol >= 0) cursor.getInt(heightCol) else 0,
                         if (sizeCol >= 0) cursor.getLong(sizeCol) else 0L
@@ -395,24 +416,14 @@ class MainActivity : AppCompatActivity() {
         }
         header.addView(brand, LinearLayout.LayoutParams(0, -2, 1f))
         val sort = TextView(this).apply {
-            text = "↕ ${sortLabels[sortMode]}"
-            textSize = 12f
+            text = "☷"
+            textSize = 25f
             setTextColor(palette.accent)
-            setPadding(dp(8), dp(8), dp(8), dp(8))
-            setOnClickListener {
-                sortMode = (sortMode + 1) % sortLabels.size
-                renderHome()
-            }
+            contentDescription = "Sort videos"
+            setPadding(dp(12), dp(4), dp(8), dp(4))
+            setOnClickListener { showSortOptions() }
         }
         header.addView(sort)
-        val refresh = TextView(this).apply {
-            text = "↻"
-            textSize = 27f
-            setTextColor(palette.accent)
-            setPadding(dp(12), dp(4), dp(4), dp(4))
-            setOnClickListener { if (hasVideoPermission()) loadLibrary() else requestVideoPermission() }
-        }
-        header.addView(refresh)
         val settings = TextView(this).apply {
             text = "⚙"
             textSize = 24f
@@ -500,6 +511,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (selectedTab == 1) {
+            addRecentlyPlayedSection()
             sectionTitle("All videos · " + allVideos.size)
             val videos = sortVideos(allVideos.filter { searchQuery.isBlank() || it.title.contains(searchQuery, true) || it.folder.contains(searchQuery, true) })
             if (videos.isEmpty()) content.addView(text("No videos found.", 14f, palette.muted).apply { setPadding(0, dp(8), 0, dp(18)) })
@@ -507,30 +519,8 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        if (getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getBoolean("show_history", true)) {
-            sectionTitle("Recently played")
-        val recentIds = recentPrefs.getString("recent", "[]") ?: "[]"
-        val recentUris = try { JSONArray(recentIds).let { arr -> (0 until arr.length()).map { arr.getString(it) } } } catch (_: Exception) { emptyList() }
-        val recent = recentUris.mapNotNull { uri -> allVideos.firstOrNull { it.uri.toString() == uri } }.distinctBy { it.uri }.take(10)
-        if (recent.isEmpty()) {
-            content.addView(text("Your recently watched videos will appear here.", 13f, palette.muted).apply { setPadding(0, dp(4), 0, dp(14)) })
-        } else {
-            val strip = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            val horizontal = android.widget.HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(strip) }
-            recent.forEach { video ->
-                val card = LinearLayout(this).apply {
-                    orientation = LinearLayout.VERTICAL
-                    setPadding(0, 0, dp(12), 0)
-                    setOnClickListener { openVideo(video) }
-                }
-                card.addView(thumbnail(video, dp(148), dp(88)))
-                card.addView(text(video.title, 12f, palette.text, true).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
-                strip.addView(card, LinearLayout.LayoutParams(dp(148), -2))
-            }
-            content.addView(horizontal)
-        }
+        addRecentlyPlayedSection()
 
-        }
 
         val folders = allVideos.groupBy { it.folderPath }.toSortedMap(String.CASE_INSENSITIVE_ORDER)
         sectionTitle("Folders · ${folders.size}")
@@ -562,10 +552,91 @@ class MainActivity : AppCompatActivity() {
 
     }
 
-    private fun sortVideos(videos: List<VideoItem>): List<VideoItem> = when (sortMode) {
-        1 -> videos.sortedBy { it.title.lowercase() }
-        2 -> videos.sortedByDescending { it.duration }
-        else -> videos.sortedByDescending { it.dateAdded }
+    private fun sortVideos(videos: List<VideoItem>): List<VideoItem> {
+        val sorted = when (sortMode) {
+            1 -> videos.sortedBy { it.title.lowercase() }
+            2 -> videos.sortedBy { it.duration }
+            else -> videos.sortedBy { it.dateModified }
+        }
+        return if (sortAscending) sorted else sorted.asReversed()
+    }
+
+    private fun showSortOptions() {
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), dp(8))
+        }
+        val choices = android.widget.RadioGroup(this).apply { orientation = android.widget.RadioGroup.VERTICAL }
+        sortLabels.forEachIndexed { index, label ->
+            val option = android.widget.RadioButton(this).apply {
+                text = label
+                textSize = 15f
+                setTextColor(palette.text)
+                id = View.generateViewId()
+                isChecked = sortMode == index
+                tag = index
+            }
+            choices.addView(option)
+        }
+        choices.setOnCheckedChangeListener { group, checkedId ->
+            val chosen = group.findViewById<android.widget.RadioButton>(checkedId)
+            if (chosen != null) {
+                sortMode = chosen.tag as Int
+                renderHome()
+            }
+        }
+        panel.addView(choices)
+        panel.addView(text("Order", 13f, palette.muted, true).apply { setPadding(0, dp(12), 0, dp(6)) })
+        val orderRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val ascending = android.widget.Button(this).apply { text = "Ascending ↑"; isAllCaps = false }
+        val descending = android.widget.Button(this).apply { text = "Descending ↓"; isAllCaps = false }
+        fun updateOrderButtons() {
+            ascending.alpha = if (sortAscending) 1f else .55f
+            descending.alpha = if (sortAscending) .55f else 1f
+        }
+        ascending.setOnClickListener { sortAscending = true; updateOrderButtons(); renderHome() }
+        descending.setOnClickListener { sortAscending = false; updateOrderButtons(); renderHome() }
+        orderRow.addView(ascending, LinearLayout.LayoutParams(0, -2, 1f))
+        orderRow.addView(descending, LinearLayout.LayoutParams(0, -2, 1f))
+        panel.addView(orderRow)
+        updateOrderButtons()
+        AlertDialog.Builder(this).setTitle("Sort videos").setView(panel).setNegativeButton("Close", null).show()
+    }
+
+    private fun addRecentlyPlayedSection() {
+        if (!getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getBoolean("show_history", true)) return
+        sectionTitle("Recently played")
+        val recentIds = recentPrefs.getString("recent", "[]") ?: "[]"
+        val recentUris = try {
+            JSONArray(recentIds).let { arr -> (0 until arr.length()).map { arr.getString(it) } }
+        } catch (_: Exception) { emptyList() }
+        val recent = recentUris.mapNotNull { uri -> allVideos.firstOrNull { it.uri.toString() == uri } }
+            .distinctBy { it.uri }.take(10)
+        if (recent.isEmpty()) {
+            content.addView(text("Your recently watched videos will appear here.", 13f, palette.muted).apply {
+                setPadding(0, dp(4), 0, dp(14))
+            })
+        } else {
+            val strip = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            val horizontal = android.widget.HorizontalScrollView(this).apply {
+                isHorizontalScrollBarEnabled = false
+                addView(strip)
+            }
+            recent.forEach { video ->
+                val card = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(0, 0, dp(12), 0)
+                    setOnClickListener { openVideo(video) }
+                }
+                card.addView(thumbnail(video, dp(148), dp(88)))
+                card.addView(text(video.title, 12f, palette.text, true).apply {
+                    maxLines = 1
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                })
+                strip.addView(card, LinearLayout.LayoutParams(dp(148), -2))
+            }
+            content.addView(horizontal)
+        }
     }
 
     private fun sectionTitle(value: String) {
