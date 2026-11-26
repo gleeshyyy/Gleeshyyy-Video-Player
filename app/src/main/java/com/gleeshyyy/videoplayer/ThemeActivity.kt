@@ -80,7 +80,7 @@ class ThemeActivity : AppCompatActivity() {
         val frame = FrameLayout(this).apply { setBackgroundColor(bg) }
         previewImage = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
-            if (mode == "picture" && !picture.isNullOrBlank()) setImageURI(Uri.parse(picture))
+            if (mode == "picture" && !picture.isNullOrBlank()) setImageBitmap(ThemeManager.loadPicture(this@ThemeActivity, picture))
             alpha = 1f - transparency / 100f * .55f
         }
         frame.addView(previewImage, FrameLayout.LayoutParams(-1, -1))
@@ -88,7 +88,7 @@ class ThemeActivity : AppCompatActivity() {
         val overlay = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(13), dp(12), dp(13), dp(12))
-            setBackgroundColor(if (dark) 0xCC101820.toInt() else 0xDDF5F7F8.toInt())
+            setBackgroundColor(if (mode == "picture") { if (dark) 0x66000000 else 0x66FFFFFF } else if (dark) 0xCC101820.toInt() else 0xDDF5F7F8.toInt())
         }
         overlay.addView(text("GleeshPlayer", 20f, Color.rgb(32,214,107), true))
         overlay.addView(text("Your videos      ⚙", 14f, fg, true).apply { setPadding(0, dp(9), 0, dp(8)) })
