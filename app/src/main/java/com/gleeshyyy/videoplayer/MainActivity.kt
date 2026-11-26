@@ -203,6 +203,12 @@ class MainActivity : AppCompatActivity() {
                     if (selectedTab != tab || selectedFolder != null) {
                         selectedTab = tab
                         selectedFolder = null
+                        val parent = bar.parent as? LinearLayout
+                        if (parent != null) {
+                            val oldIndex = parent.indexOfChild(bar)
+                            parent.removeView(bar)
+                            parent.addView(createBottomNavigation(), LinearLayout.LayoutParams(-1, dp(62)), oldIndex)
+                        }
                         libraryScroll.scrollTo(0, 0)
                         renderHome()
                     }
