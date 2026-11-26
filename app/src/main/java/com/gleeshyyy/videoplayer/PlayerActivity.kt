@@ -637,7 +637,7 @@ class PlayerActivity : AppCompatActivity() {
             progressUpdater.run()
             applySubtitleStyle(
                 if (subtitleRemembered()) subtitlePrefs().getFloat("subtitle_size", 22f) else 22f,
-                if (subtitleRemembered()) subtitlePrefs().getInt("subtitle_color", android.graphics.Color.WHITE) else android.graphics.Color.WHITE,
+                android.graphics.Color.WHITE,
                 if (subtitleRemembered()) subtitlePrefs().getInt("subtitle_position", 18) else 18,
                 false
             )
