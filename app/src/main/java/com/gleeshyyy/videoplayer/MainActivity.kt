@@ -520,14 +520,30 @@ class MainActivity : AppCompatActivity() {
         content.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
     }
 
-    private fun thumbnail(video: VideoItem, width: Int, height: Int): ImageView {
+    private fun thumbnail(video: VideoItem, width: Int, height: Int): FrameLayout {
         val cacheKey = "${video.uri}|${width}x${height}"
-        val image = ImageView(this).apply {
+        val frame = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(width, height)
-            scaleType = ImageView.ScaleType.CENTER_CROP
             setBackgroundColor(palette.raised)
+            clipChildren = true
+        }
+        val image = ImageView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(-1, -1)
+            scaleType = ImageView.ScaleType.CENTER_CROP
             setImageResource(android.R.drawable.ic_media_play)
             tag = cacheKey
+        }
+        frame.addView(image)
+        val history = getSharedPreferences("gleeshplayer_history", MODE_PRIVATE)
+        val watchedPosition = history.getLong("position_${video.uri}", 0L).coerceAtLeast(0L)
+        if (video.duration > 0L && watchedPosition > 1000L && watchedPosition < video.duration - 1500L) {
+            val track = android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+                max = 100
+                progress = (watchedPosition * 100L / video.duration).toInt().coerceIn(0, 100)
+                progressTintList = android.content.res.ColorStateList.valueOf(palette.accent)
+                progressBackgroundTintList = android.content.res.ColorStateList.valueOf(0x99000000.toInt())
+            }
+            frame.addView(track, FrameLayout.LayoutParams(-1, dp(3), Gravity.BOTTOM))
         }
         val cached = thumbnailCache.get(cacheKey)
         if (cached != null) {
@@ -536,9 +552,7 @@ class MainActivity : AppCompatActivity() {
             thumbnailExecutor.execute {
                 val bitmap = try {
                     contentResolver.loadThumbnail(video.uri, Size(width, height), null)
-                } catch (_: Exception) {
-                    null
-                }
+                } catch (_: Exception) { null }
                 if (bitmap != null) thumbnailCache.put(cacheKey, bitmap)
                 thumbnailLoads.remove(cacheKey)
                 thumbnailHandler.post {
@@ -549,7 +563,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        return image
+        return frame
     }
 
     override fun onDestroy() {
