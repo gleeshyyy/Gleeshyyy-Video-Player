@@ -210,7 +210,6 @@ class SettingsActivity : AppCompatActivity() {
             speedLabels, speeds.map { it.toString() }, prefs.getFloat("long_press_speed", 2f).toString(), "2×")
         addChoice("Fast forward/rewind interval", "How far a double-tap skips forward or backward.", "seek_interval",
             seekIntervals.map { "${it}s" }, seekIntervals.map { it.toString() }, prefs.getInt("seek_interval", 10).toString(), "10s")
-        addToggle("Auto miniplayer", "When enabled, pressing Home or switching to another app shrinks the video into Android's floating Picture-in-Picture mini player.", "auto_miniplayer", false)
         addChoice("Resume", "Choose what GleeshPlayer does when a video has a saved playback position.", "resume_behavior",
             listOf("Ask every time", "Always", "Never"), listOf("0", "1", "2"), prefs.getInt("resume_behavior", 0).toString(), "Ask every time")
         addToggle("Remember brightness", "Keep the brightness level last set with the player's left-side swipe gesture.", "remember_brightness", true)
