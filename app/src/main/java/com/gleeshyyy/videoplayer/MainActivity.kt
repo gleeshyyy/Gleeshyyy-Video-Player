@@ -948,7 +948,32 @@ class MainActivity : AppCompatActivity() {
         }
         row.addView(thumbnail(video, dp(104), dp(66)))
         val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, 0, 0) }
-        labels.addView(text(video.title, 14f, palette.text, true).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.MIDDLE })
+        val titleLine = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        titleLine.addView(text(video.title, 14f, palette.text, true).apply {
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        val hasSavedSrt = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+            .contains("external_subtitle_" + video.uri.toString())
+        if (hasSavedSrt) {
+            titleLine.addView(TextView(this).apply {
+                text = "SRT"
+                textSize = 8f
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                setTextColor(android.graphics.Color.WHITE)
+                setPadding(dp(5), dp(2), dp(5), dp(2))
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(0xFF159447.toInt())
+                    cornerRadius = dp(3).toFloat()
+                }
+                contentDescription = "External SRT subtitle saved"
+            }, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(5) })
+        }
+        labels.addView(titleLine)
         val details = mutableListOf(formatDuration(video.duration))
         val resolution = video.width.coerceAtLeast(0).takeIf { it > 0 }?.let { "${it}×${video.height}" }
         if (resolution != null) details.add(resolution)
