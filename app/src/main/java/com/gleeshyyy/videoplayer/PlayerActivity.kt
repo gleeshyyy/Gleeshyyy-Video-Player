@@ -67,6 +67,7 @@ class PlayerActivity : AppCompatActivity() {
         return builder.build()
     }
     private lateinit var subtitleFileLabel: TextView
+    private var currentSubtitleValueLabel: TextView? = null
     private lateinit var progressSeekBar: SeekBar
     private lateinit var currentTimeLabel: TextView
     private lateinit var durationTimeLabel: TextView
@@ -665,6 +666,7 @@ class PlayerActivity : AppCompatActivity() {
         val subtitle = MediaItem.SubtitleConfiguration.Builder(uri)
             .setMimeType(MimeTypes.APPLICATION_SUBRIP)
             .setLanguage("und")
+            .setLabel(displayName)
             .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
             .build()
         val updatedItem = MediaItem.Builder()
@@ -678,6 +680,8 @@ class PlayerActivity : AppCompatActivity() {
             subtitleFileLabel.text = "Loaded: $displayName"
             subtitleFileLabel.setTextColor(palette.accent)
         }
+        currentSubtitleValueLabel?.text = displayName
+        currentSubtitleValueLabel?.setTextColor(palette.accent)
         currentPlayer.setMediaItem(updatedItem, currentPosition)
         currentPlayer.prepare()
         currentPlayer.playWhenReady = wasPlaying
@@ -957,6 +961,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun currentSubtitleSummary(): String {
         val current = player ?: return externalSubtitleName ?: "None"
+        if (externalSubtitleUri != null) return externalSubtitleName ?: "External subtitle"
         current.currentTracks.groups.forEach { group ->
             if (group.type != C.TRACK_TYPE_TEXT) return@forEach
             for (index in 0 until group.length) {
@@ -982,7 +987,7 @@ class PlayerActivity : AppCompatActivity() {
             for (index in 0 until group.length) {
                 if (!group.isTrackSupported(index)) continue
                 val format = group.getTrackFormat(index)
-                val isExternal = externalSubtitleUri != null && format.sampleMimeType == MimeTypes.APPLICATION_SUBRIP
+                val isExternal = externalSubtitleUri != null && (format.label == externalSubtitleName || format.sampleMimeType == MimeTypes.APPLICATION_SUBRIP)
                 val label = if (isExternal) externalSubtitleName ?: "External subtitle"
                     else format.label?.takeIf { it.isNotBlank() }
                         ?: format.language?.takeIf { it.isNotBlank() && it != "und" }
