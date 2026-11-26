@@ -133,6 +133,8 @@ class PlayerActivity : AppCompatActivity() {
         audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         gestureBrightness = currentBrightness()
         setContentView(root)
+        window.statusBarColor = palette.background
+        window.navigationBarColor = palette.background
         updateSystemBars()
 
         val prefs = getSharedPreferences("gleeshplayer_history", MODE_PRIVATE)
