@@ -58,10 +58,15 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(12), dp(12), dp(12), dp(12))
         }
         splash.addView(logo, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
+        window.decorView.systemUiVisibility =
+            (View.SYSTEM_UI_FLAG_FULLSCREEN or
+             View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
         setContentView(splash)
         Handler(Looper.getMainLooper()).postDelayed({
+            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
             showVideoLibrary()
-        }, 1400L)
+        }, 2500L)
     }
 
     private fun showVideoLibrary() {
