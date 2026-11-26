@@ -473,6 +473,7 @@ class PlayerActivity : AppCompatActivity() {
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 val completedMode = gestureMode
+                val wasLongPress = longPressSpeedActive
                 if (completedMode == 1 && event.actionMasked == MotionEvent.ACTION_UP) {
                     player?.seekTo(scrubPreviewPosition)
                 }
@@ -481,7 +482,7 @@ class PlayerActivity : AppCompatActivity() {
                     player?.setPlaybackSpeed(playbackSpeeds[playbackSpeedIndex])
                     longPressSpeedActive = false
                 }
-                if (completedMode != 0 || longPressSpeedActive) hideGestureFeedbackSoon()
+                if (completedMode != 0 || wasLongPress) hideGestureFeedbackSoon()
                 return true
             }
         }
