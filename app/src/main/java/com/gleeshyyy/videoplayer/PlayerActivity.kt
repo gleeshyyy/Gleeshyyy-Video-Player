@@ -61,6 +61,8 @@ class PlayerActivity : AppCompatActivity() {
     private var scrubStartPosition = 0L
     private var scrubPreviewPosition = 0L
     private var gestureStartX = 0f
+    private var subtitleDragStartY = 0f
+    private var subtitleInitialTranslation = 0f
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -429,7 +431,11 @@ class PlayerActivity : AppCompatActivity() {
                 gestureStartX = event.x
                 scrubStartPosition = player?.currentPosition ?: 0L
                 scrubPreviewPosition = scrubStartPosition
-                gestureMode = 0
+                gestureMode = if (event.x in (width * .20f)..(width * .80f) && event.y > height * .68f) 4 else 0
+                if (gestureMode == 4) {
+                    subtitleDragStartY = event.y
+                    subtitleInitialTranslation = playerView.subtitleView?.translationY ?: 0f
+                }
                 gestureVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() /
                     audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
                 return true
@@ -465,6 +471,14 @@ class PlayerActivity : AppCompatActivity() {
                             0
                         )
                         showGestureFeedback("VOLUME  ${(gestureVolume * 100).toInt()}%", (gestureVolume * 100).toInt(), true)
+                    }
+                    4 -> {
+                        val subtitleView = playerView.subtitleView
+                        if (subtitleView != null) {
+                            subtitleView.translationY = (subtitleInitialTranslation + event.y - subtitleDragStartY)
+                                .coerceIn(-height * .45f, height * .45f)
+                        }
+                        showGestureFeedback("MOVE SUBTITLES", 50, true)
                     }
                 }
                 lastGestureX = event.x
