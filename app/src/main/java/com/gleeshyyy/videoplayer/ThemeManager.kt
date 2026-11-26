@@ -14,6 +14,9 @@ import androidx.appcompat.app.AppCompatDelegate
 data class PlayerPalette(val background:Int,val surface:Int,val raised:Int,val text:Int,val muted:Int,val accent:Int,val brandText:Int,val isDark:Boolean)
 
 object ThemeManager {
+    @Volatile private var cachedUri: String? = null
+    @Volatile private var cachedBitmap: Bitmap? = null
+
     fun applySystemMode(context:Context) {
         val mode=context.getSharedPreferences("gleeshplayer_settings",Context.MODE_PRIVATE).getString("theme_mode","dark")
         AppCompatDelegate.setDefaultNightMode(when(mode) {
@@ -23,8 +26,9 @@ object ThemeManager {
         })
     }
 
-    private fun decodeSmall(context:Context, uri:String?):Bitmap? {
+    @Synchronized private fun decodeSmall(context:Context, uri:String?):Bitmap? {
         if(uri.isNullOrBlank()) return null
+        if(cachedUri == uri && cachedBitmap?.isRecycled == false) return cachedBitmap
         return try {
             val resolver=context.contentResolver
             val parsed=Uri.parse(uri)
@@ -33,7 +37,11 @@ object ThemeManager {
             var sample=1
             while(bounds.outWidth/sample>1600 || bounds.outHeight/sample>1600) sample*=2
             val options=BitmapFactory.Options().apply { inSampleSize=sample.coerceAtLeast(1); inPreferredConfig=Bitmap.Config.RGB_565 }
-            resolver.openInputStream(parsed)?.use { BitmapFactory.decodeStream(it,null,options) }
+            val decoded=resolver.openInputStream(parsed)?.use { BitmapFactory.decodeStream(it,null,options) }
+            cachedBitmap?.takeIf { !it.isRecycled }?.recycle()
+            cachedUri=uri
+            cachedBitmap=decoded
+            decoded
         } catch(_:Exception){null}
     }
 
@@ -56,14 +64,12 @@ object ThemeManager {
     fun pictureIsDark(context:Context,uri:String?):Boolean {
         val bitmap=decodeSmall(context,uri) ?: return true
         val c=averageColor(bitmap)
-        bitmap.recycle()
         return (Color.red(c)*.299+Color.green(c)*.587+Color.blue(c)*.114)<145
     }
 
     fun pictureAccent(context:Context,uri:String?):Int {
         val bitmap=decodeSmall(context,uri) ?: return Color.rgb(32,214,107)
         val c=averageColor(bitmap)
-        bitmap.recycle()
         val r=Color.red(c); val g=Color.green(c); val b=Color.blue(c)
         val max=maxOf(r,g,b); val min=minOf(r,g,b)
         val saturation=if(max==0) 0f else (max-min).toFloat()/max
