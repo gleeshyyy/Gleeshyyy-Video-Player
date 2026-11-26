@@ -1056,7 +1056,8 @@ class PlayerActivity : AppCompatActivity() {
                 if (!hasFocus) {
                     subtitleDelayMs = ((text?.toString()?.trim()?.toFloatOrNull() ?: 0f) * 1000f)
                         .toLong().coerceIn(-10_000L, 10_000L)
-                    refreshValue()
+                    if (subtitleDelayMs == 0L) setText("0.0")
+                    else setText(String.format(java.util.Locale.US, "%.1f", subtitleDelayMs / 1000f))
                 }
             }
             addTextChangedListener(object : android.text.TextWatcher {
