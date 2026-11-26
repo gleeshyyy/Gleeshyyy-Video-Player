@@ -1,6 +1,7 @@
 package com.gleeshyyy.videoplayer
 
 import android.content.res.Configuration
+import android.content.pm.ActivityInfo
 import android.media.AudioManager
 import android.provider.Settings
 import android.view.MotionEvent
@@ -17,6 +18,7 @@ import android.graphics.Typeface
 import android.util.TypedValue
 import androidx.appcompat.app.AlertDialog
 import androidx.media3.ui.CaptionStyleCompat
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
@@ -30,6 +32,9 @@ class PlayerActivity : AppCompatActivity() {
     private var videoKey: String = ""
     private val playbackSpeeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
     private var playbackSpeedIndex = 2
+    private val resizeModes = listOf(AspectRatioFrameLayout.RESIZE_MODE_FIT, AspectRatioFrameLayout.RESIZE_MODE_ZOOM, AspectRatioFrameLayout.RESIZE_MODE_FILL)
+    private val resizeLabels = listOf("FIT", "ZOOM", "FILL")
+    private var resizeModeIndex = 0
     private lateinit var gestureLayer: View
     private lateinit var gestureDetector: GestureDetector
     private var gestureVolume = 0f
@@ -92,6 +97,34 @@ class PlayerActivity : AppCompatActivity() {
             setOnClickListener { showSubtitleCustomization() }
         }
         heading.addView(subtitleButton)
+        val fitButton = TextView(this).apply {
+            text = "FIT"
+            textSize = 12f
+            setTextColor(palette.text)
+            setPadding(12, 10, 4, 10)
+            contentDescription = "Change video aspect ratio"
+            setOnClickListener {
+                resizeModeIndex = (resizeModeIndex + 1) % resizeModes.size
+                playerView.resizeMode = resizeModes[resizeModeIndex]
+                text = resizeLabels[resizeModeIndex]
+            }
+        }
+        heading.addView(fitButton)
+        val rotateButton = TextView(this).apply {
+            text = "↻"
+            textSize = 22f
+            setTextColor(palette.accent)
+            setPadding(12, 4, 0, 4)
+            contentDescription = "Rotate screen"
+            setOnClickListener {
+                requestedOrientation = if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                    ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                } else {
+                    ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                }
+            }
+        }
+        heading.addView(rotateButton)
         root.addView(heading)
         playerView = PlayerView(this).apply {
             useController = true
