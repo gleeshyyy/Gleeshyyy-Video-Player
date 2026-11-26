@@ -105,6 +105,8 @@ class PlayerActivity : AppCompatActivity() {
     private var gestureBrightness = 0.5f
     private var longPressSpeedActive = false
     private var longPressSpeed = 2.0f
+    private var seekIntervalMs = 10_000L
+    private var longPressVibrator: android.os.Vibrator? = null
     private lateinit var audioManager: AudioManager
     private lateinit var feedbackLabel: TextView
     private lateinit var feedbackBar: android.widget.ProgressBar
@@ -118,7 +120,13 @@ class PlayerActivity : AppCompatActivity() {
         val uri = intent.data ?: run { finish(); return }
         val title = intent.getStringExtra("title") ?: uri.lastPathSegment ?: "Video"
         videoKey = uri.toString()
-        longPressSpeed = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getFloat("long_press_speed", 2.0f)
+        val videoSettings = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+        longPressSpeed = videoSettings.getFloat("long_press_speed", 2.0f)
+        seekIntervalMs = videoSettings.getInt("seek_interval", 10).coerceIn(3, 60) * 1000L
+        longPressVibrator = getSystemService(VIBRATOR_SERVICE) as? android.os.Vibrator
+        if (videoSettings.getBoolean("remember_orientation", true) && videoSettings.contains("last_orientation")) {
+            requestedOrientation = if (videoSettings.getBoolean("last_orientation", false)) ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
         remember(videoKey)
 
         rootLayout = LinearLayout(this).apply {
@@ -206,6 +214,8 @@ class PlayerActivity : AppCompatActivity() {
             setOnClickListener {
                 resizeModeIndex = (resizeModeIndex + 1) % resizeModes.size
                 playerView.resizeMode = resizeModes[resizeModeIndex]
+                if (getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getBoolean("remember_aspect", true))
+                    getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).edit().putInt("last_aspect", resizeModeIndex).apply()
                 text = resizeLabels[resizeModeIndex]
             }
         }
@@ -214,7 +224,10 @@ class PlayerActivity : AppCompatActivity() {
         })
         playerHeader.addView(actionRow, LinearLayout.LayoutParams(-1, -2))
         rootLayout.addView(playerHeader, LinearLayout.LayoutParams(-1, -2))
+        resizeModeIndex = if (videoSettings.getBoolean("remember_aspect", true))
+            videoSettings.getInt("last_aspect", 0).coerceIn(0, resizeModes.lastIndex) else 0
         playerView = PlayerView(this).apply {
+            resizeMode = resizeModes[resizeModeIndex]
             useController = false
             setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
             setShowRewindButton(false)
@@ -243,7 +256,7 @@ class PlayerActivity : AppCompatActivity() {
                         val current = player?.currentPosition ?: 0L
                         val duration = player?.duration ?: 0L
                         if (duration > 0L) {
-                            val target = (current - 10_000L).coerceIn(0L, duration)
+                            val target = (current - seekIntervalMs).coerceIn(0L, duration)
                             val moved = current - target
                             player?.seekTo(target)
                             if (moved > 0L) showGestureFeedback("−${(moved / 1000L).coerceAtLeast(1L)} seconds", 0, false)
@@ -253,7 +266,7 @@ class PlayerActivity : AppCompatActivity() {
                         val current = player?.currentPosition ?: 0L
                         val duration = player?.duration ?: 0L
                         if (duration > 0L) {
-                            val target = (current + 10_000L).coerceIn(0L, duration)
+                            val target = (current + seekIntervalMs).coerceIn(0L, duration)
                             val moved = target - current
                             player?.seekTo(target)
                             if (moved > 0L) showGestureFeedback("+${(moved / 1000L).coerceAtLeast(1L)} seconds", 100, false)
@@ -267,7 +280,13 @@ class PlayerActivity : AppCompatActivity() {
             }
 
             override fun onLongPress(e: MotionEvent) {
-                
+                val settings = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+                if (settings.getBoolean("long_press_vibration", true)) {
+                    try {
+                        if (android.os.Build.VERSION.SDK_INT >= 26) longPressVibrator?.vibrate(android.os.VibrationEffect.createOneShot(35, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                        else longPressVibrator?.vibrate(35)
+                    } catch (_: Exception) { }
+                }
                 player?.setPlaybackSpeed(longPressSpeed)
                 longPressSpeedActive = true
                 showGestureFeedback("${longPressSpeed.toInt()}× playing…", 100, true)
@@ -519,10 +538,19 @@ class PlayerActivity : AppCompatActivity() {
 
         val prefs = getSharedPreferences("gleeshplayer_history", MODE_PRIVATE)
         resumePosition = prefs.getLong("position_$videoKey", 0L).coerceAtLeast(0L)
+        val resumeMode = videoSettings.getInt("resume_behavior", 0)
+        if (resumeMode == 2) resumePosition = 0L
         playlistUris = intent.getParcelableArrayListExtra<Uri>("playlist_uris")?.takeIf { it.isNotEmpty() } ?: arrayListOf(uri)
         playlistIndex = intent.getIntExtra("playlist_index", 0).coerceIn(0, playlistUris.lastIndex)
-        resumePromptVisible = resumePosition > 1000L
-        if (resumePromptVisible && !isLandscapeNow()) resumeBanner.visibility = View.VISIBLE
+        resumePromptVisible = resumePosition > 1000L && resumeMode == 0
+        if (resumeMode == 1) resumeBanner.visibility = View.GONE
+        if (resumePromptVisible && !isLandscapeNow()) {
+            resumeBanner.visibility = View.VISIBLE
+            controlsHandler.postDelayed({
+                resumePromptVisible = false
+                resumeBanner.visibility = View.GONE
+            }, 5000L)
+        }
         player = ExoPlayer.Builder(this).build().also {
             playerView.player = it
             it.addListener(object : Player.Listener {
@@ -899,6 +927,8 @@ class PlayerActivity : AppCompatActivity() {
                     2 -> {
                         gestureBrightness = (gestureBrightness - dy / height).coerceIn(0.05f, 1f)
                         window.attributes = window.attributes.apply { screenBrightness = gestureBrightness }
+                        val prefs = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+                        if (prefs.getBoolean("remember_brightness", true)) prefs.edit().putFloat("last_brightness", gestureBrightness).apply()
                         showGestureFeedback("BRIGHTNESS  ${(gestureBrightness * 100).toInt()}%", (gestureBrightness * 100).toInt(), true)
                     }
                     3 -> {
@@ -960,6 +990,9 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun currentBrightness(): Float {
+        val settings = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+        if (settings.getBoolean("remember_brightness", true) && settings.contains("last_brightness"))
+            return settings.getFloat("last_brightness", 0.5f).coerceIn(0.05f, 1f)
         val windowBrightness = window.attributes.screenBrightness
         if (windowBrightness >= 0f) return windowBrightness.coerceIn(0.05f, 1f)
         return try {
@@ -971,6 +1004,9 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        val settings = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+        if (settings.getBoolean("remember_orientation", true))
+            settings.edit().putBoolean("last_orientation", newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE).apply()
         updateSystemBars()
         applyOrientationLayout()
     }
@@ -1071,6 +1107,17 @@ class PlayerActivity : AppCompatActivity() {
         val savedPosition = if (duration > 0 && position >= duration - 1500L) 0L else position
         getSharedPreferences("gleeshplayer_history", MODE_PRIVATE)
             .edit().putLong("position_$videoKey", savedPosition).apply()
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        val settings = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+        if (settings.getBoolean("auto_miniplayer", false) && android.os.Build.VERSION.SDK_INT >= 26) {
+            try {
+                val ratio = android.util.Rational(playerView.width.coerceAtLeast(16), playerView.height.coerceAtLeast(9))
+                enterPictureInPictureMode(android.app.PictureInPictureParams.Builder().setAspectRatio(ratio).build())
+            } catch (_: Exception) { }
+        }
     }
 
     override fun onPause() {
