@@ -75,6 +75,18 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var controlsBar: LinearLayout
     private lateinit var playPauseButton: TextView
     private lateinit var orientationIcon: PhoneOrientationIcon
+    private lateinit var playerHeader: LinearLayout
+    private lateinit var playbackContainer: LinearLayout
+    private lateinit var bottomControls: LinearLayout
+    private lateinit var rootLayout: LinearLayout
+    private lateinit var resumeBanner: LinearLayout
+    private lateinit var subtitleDock: FrameLayout
+    private lateinit var endModeButton: TextView
+    private var playlistUris: ArrayList<Uri> = arrayListOf()
+    private var playlistIndex = 0
+    private var resumePosition = 0L
+    private val controlsHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val hideControlsRunnable = Runnable { if (isLandscapeNow()) bottomControls.visibility = View.GONE }
     private var videoIsLandscape = false
     private var videoKey: String = ""
     private val playbackSpeeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
@@ -107,12 +119,12 @@ class PlayerActivity : AppCompatActivity() {
         longPressSpeed = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getFloat("long_press_speed", 2.0f)
         remember(videoKey)
 
-        val root = LinearLayout(this).apply {
+        rootLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(palette.background)
         }
-        val playerHeader = LinearLayout(this).apply {
+        playerHeader = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dpPlayer(16), dpPlayer(7), dpPlayer(16), dpPlayer(8))
             setBackgroundColor(palette.background)
@@ -199,7 +211,7 @@ class PlayerActivity : AppCompatActivity() {
             marginStart = dpPlayer(12)
         })
         playerHeader.addView(actionRow, LinearLayout.LayoutParams(-1, -2))
-        root.addView(playerHeader, LinearLayout.LayoutParams(-1, -2))
+        rootLayout.addView(playerHeader, LinearLayout.LayoutParams(-1, -2))
         playerView = PlayerView(this).apply {
             useController = false
             setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
@@ -213,7 +225,8 @@ class PlayerActivity : AppCompatActivity() {
             override fun onDown(e: MotionEvent): Boolean = true
 
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                controlsBar.visibility = if (controlsBar.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+                bottomControls.visibility = if (bottomControls.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+                if (bottomControls.visibility == View.VISIBLE) scheduleControlsHide() else controlsHandler.removeCallbacks(hideControlsRunnable)
                 return true
             }
 
@@ -285,13 +298,43 @@ class PlayerActivity : AppCompatActivity() {
         feedback.addView(feedbackLabel)
         feedback.addView(feedbackBar, LinearLayout.LayoutParams(dpPlayer(150), dpPlayer(7)).apply { topMargin = dpPlayer(9) })
         playbackArea.addView(feedback, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
-        val playbackContainer = LinearLayout(this).apply {
+        playbackContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             clipChildren = false
             clipToPadding = false
         }
         playbackContainer.addView(playbackArea, LinearLayout.LayoutParams(-1, 0, 1f))
-        val subtitleDock = FrameLayout(this).apply {
+        resumeBanner = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dpPlayer(12), dpPlayer(3), dpPlayer(8), dpPlayer(3))
+            setBackgroundColor(palette.raised)
+            visibility = View.GONE
+        }
+        resumeBanner.addView(TextView(this).apply {
+            text = "Continued from where you stopped"
+            textSize = 12f
+            setTextColor(palette.text)
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        resumeBanner.addView(TextView(this).apply {
+            text = "START"
+            textSize = 12f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(palette.accent)
+            setPadding(dpPlayer(10), dpPlayer(8), dpPlayer(10), dpPlayer(8))
+            setOnClickListener { player?.seekTo(0L); resumeBanner.visibility = View.GONE }
+        })
+        resumeBanner.addView(TextView(this).apply {
+            text = "×"
+            textSize = 22f
+            gravity = Gravity.CENTER
+            setTextColor(palette.muted)
+            setPadding(dpPlayer(10), dpPlayer(3), dpPlayer(5), dpPlayer(3))
+            contentDescription = "Dismiss resume message"
+            setOnClickListener { resumeBanner.visibility = View.GONE }
+        })
+        playbackContainer.addView(resumeBanner, LinearLayout.LayoutParams(-1, -2))
+        subtitleDock = FrameLayout(this).apply {
             clipChildren = false
             clipToPadding = false
             setBackgroundColor(palette.background)
@@ -324,7 +367,7 @@ class PlayerActivity : AppCompatActivity() {
         }
         subtitleDock.addView(captionLabel, FrameLayout.LayoutParams(-1, -2, Gravity.CENTER))
         playbackContainer.addView(subtitleDock, LinearLayout.LayoutParams(-1, dpPlayer(62)))
-        root.addView(playbackContainer, LinearLayout.LayoutParams(-1, 0, 1f))
+        rootLayout.addView(playbackContainer, LinearLayout.LayoutParams(-1, 0, 1f))
 
         controlsBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -339,22 +382,23 @@ class PlayerActivity : AppCompatActivity() {
                 textSize = 25f
                 gravity = Gravity.CENTER
                 setTextColor(palette.text)
-                setPadding(dpPlayer(28), dpPlayer(8), dpPlayer(28), dpPlayer(8))
+                setPadding(dpPlayer(12), dpPlayer(8), dpPlayer(12), dpPlayer(8))
                 setOnClickListener { action() }
             }
-        controlsBar.addView(controlButton("⏮", "Rewind 10 seconds") {
-            player?.let { current -> current.seekTo((current.currentPosition - 10_000L).coerceAtLeast(0L)) }
+        controlsBar.addView(controlButton("⏮", "Previous video") {
+            player?.let { current -> if (current.currentMediaItemIndex > 0) current.seekTo(current.currentMediaItemIndex - 1, 0L) else current.seekTo(0L) }
         }, LinearLayout.LayoutParams(0, -2, 1f))
         playPauseButton = controlButton("Ⅱ", "Play or pause") {
             player?.let { if (it.isPlaying) it.pause() else it.play() }
         }
         controlsBar.addView(playPauseButton, LinearLayout.LayoutParams(0, -2, 1f))
-        controlsBar.addView(controlButton("⏭", "Forward 10 seconds") {
-            player?.let { current ->
-                val duration = current.duration.coerceAtLeast(0L)
-                current.seekTo((current.currentPosition + 10_000L).coerceAtMost(duration))
-            }
+        controlsBar.addView(controlButton("⏭", "Next video") {
+            player?.seekToNextMediaItem()
         }, LinearLayout.LayoutParams(0, -2, 1f))
+        endModeButton = controlButton("NEXT", "Change what happens when video ends") { showEndBehaviorOptions() }
+        endModeButton.textSize = 12f
+        endModeButton.setTextColor(palette.accent)
+        controlsBar.addView(endModeButton, LinearLayout.LayoutParams(0, -2, 1f))
         val timeline = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dpPlayer(14), dpPlayer(2), dpPlayer(14), dpPlayer(2))
@@ -397,23 +441,27 @@ class PlayerActivity : AppCompatActivity() {
             })
         }
         timeline.addView(progressSeekBar, LinearLayout.LayoutParams(-1, dpPlayer(25)))
-        val bottomControls = LinearLayout(this).apply {
+        bottomControls = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(palette.surface)
             addView(timeline, LinearLayout.LayoutParams(-1, -2))
             addView(controlsBar, LinearLayout.LayoutParams(-1, -2))
         }
-        root.addView(bottomControls, LinearLayout.LayoutParams(-1, -2))
+        rootLayout.addView(bottomControls, LinearLayout.LayoutParams(-1, -2))
         audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         gestureBrightness = currentBrightness()
-        setContentView(root)
+        setContentView(rootLayout)
         playerView.subtitleView?.visibility = View.GONE
         window.statusBarColor = palette.background
         window.navigationBarColor = palette.background
         updateSystemBars()
+        applyOrientationLayout()
 
         val prefs = getSharedPreferences("gleeshplayer_history", MODE_PRIVATE)
-        val resumeAt = prefs.getLong("position_$videoKey", 0L).coerceAtLeast(0L)
+        resumePosition = prefs.getLong("position_$videoKey", 0L).coerceAtLeast(0L)
+        playlistUris = intent.getParcelableArrayListExtra<Uri>("playlist_uris")?.takeIf { it.isNotEmpty() } ?: arrayListOf(uri)
+        playlistIndex = intent.getIntExtra("playlist_index", 0).coerceIn(0, playlistUris.lastIndex)
+        if (resumePosition > 1000L) resumeBanner.visibility = View.VISIBLE
         player = ExoPlayer.Builder(this).build().also {
             playerView.player = it
             it.addListener(object : Player.Listener {
@@ -431,9 +479,24 @@ class PlayerActivity : AppCompatActivity() {
                     videoIsLandscape = if (rotated) videoSize.height > videoSize.width else videoSize.width > videoSize.height
                     if (::orientationIcon.isInitialized) orientationIcon.setLandscape(videoIsLandscape)
                 }
+                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    val activeUri = mediaItem?.localConfiguration?.uri ?: return
+                    videoKey = activeUri.toString()
+                    playlistIndex = playlistUris.indexOf(activeUri).takeIf { it >= 0 } ?: playlistIndex
+                    remember(videoKey)
+                    resumeBanner.visibility = View.GONE
+                }
+                override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
+                    val mode = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getInt("playback_end_behavior", 0)
+                    if (mode == 2 && reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION) finish()
+                }
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (playbackState == Player.STATE_ENDED) finish()
+                }
             })
-            it.setMediaItem(MediaItem.fromUri(uri), resumeAt)
+            it.setMediaItems(playlistUris.map { itemUri -> MediaItem.fromUri(itemUri) }, playlistIndex, resumePosition)
             it.prepare()
+            applyEndBehavior(false)
             progressUpdater.run()
             applySubtitleStyle(
                 if (subtitleRemembered()) subtitlePrefs().getFloat("subtitle_size", 22f) else 22f,
@@ -845,16 +908,75 @@ class PlayerActivity : AppCompatActivity() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         updateSystemBars()
+        applyOrientationLayout()
     }
 
+    private fun isLandscapeNow(): Boolean = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     private fun updateSystemBars() {
-        val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-        window.decorView.systemUiVisibility = if (landscape) {
-            View.SYSTEM_UI_FLAG_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        window.decorView.systemUiVisibility = if (isLandscapeNow()) {
+            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        } else View.SYSTEM_UI_FLAG_VISIBLE
+    }
+
+    private fun applyOrientationLayout() {
+        if (!::rootLayout.isInitialized || !::bottomControls.isInitialized) return
+        val landscape = isLandscapeNow()
+        (bottomControls.parent as? android.view.ViewGroup)?.removeView(bottomControls)
+        if (landscape) {
+            playerHeader.visibility = View.GONE
+            subtitleDock.visibility = View.GONE
+            playbackArea.addView(bottomControls, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+            bottomControls.setBackgroundColor(0x55000000)
+            controlsBar.setBackgroundColor(0x55000000)
+            bottomControls.findViewWithTag<View>("timeline_controls")?.setBackgroundColor(0x55000000)
+            for (i in 0 until controlsBar.childCount) (controlsBar.getChildAt(i) as? TextView)?.setTextColor(android.graphics.Color.WHITE)
+            endModeButton.setTextColor(0xFF65E58B.toInt())
+            bottomControls.visibility = View.VISIBLE
+            scheduleControlsHide()
         } else {
-            View.SYSTEM_UI_FLAG_VISIBLE
+            controlsHandler.removeCallbacks(hideControlsRunnable)
+            playbackArea.removeView(bottomControls)
+            playerHeader.visibility = View.VISIBLE
+            subtitleDock.visibility = View.VISIBLE
+            bottomControls.setBackgroundColor(palette.surface)
+            controlsBar.setBackgroundColor(palette.surface)
+            bottomControls.findViewWithTag<View>("timeline_controls")?.setBackgroundColor(palette.surface)
+            for (i in 0 until controlsBar.childCount) (controlsBar.getChildAt(i) as? TextView)?.setTextColor(palette.text)
+            endModeButton.setTextColor(palette.accent)
+            rootLayout.addView(bottomControls, LinearLayout.LayoutParams(-1, -2))
+            bottomControls.visibility = View.VISIBLE
+        }
+    }
+
+    private fun scheduleControlsHide() {
+        controlsHandler.removeCallbacks(hideControlsRunnable)
+        if (isLandscapeNow()) controlsHandler.postDelayed(hideControlsRunnable, 5000L)
+    }
+
+    private fun showEndBehaviorOptions() {
+        val options = arrayOf("Play next video", "Repeat current video", "Stop and return to list")
+        val prefs = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+        val selected = prefs.getInt("playback_end_behavior", 0).coerceIn(0, 2)
+        AlertDialog.Builder(this).setTitle("When this video ends")
+            .setSingleChoiceItems(options, selected) { dialog, which ->
+                prefs.edit().putInt("playback_end_behavior", which).apply()
+                applyEndBehavior(true)
+                dialog.dismiss()
+            }.setNegativeButton("Cancel", null).show()
+    }
+
+    private fun applyEndBehavior(reload: Boolean) {
+        val current = player ?: return
+        val mode = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getInt("playback_end_behavior", 0).coerceIn(0, 2)
+        endModeButton.text = when (mode) { 1 -> "REPEAT"; 2 -> "STOP"; else -> "NEXT" }
+        current.repeatMode = if (mode == 1) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+        if (reload) {
+            val position = current.currentPosition.coerceAtLeast(0L)
+            val wasPlaying = current.isPlaying || current.playWhenReady
+            current.setMediaItems(playlistUris.map { MediaItem.fromUri(it) }, playlistIndex, position)
+            current.prepare()
+            current.playWhenReady = wasPlaying
         }
     }
 
@@ -878,6 +1000,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
+        controlsHandler.removeCallbacks(hideControlsRunnable)
         if (longPressSpeedActive) {
             player?.setPlaybackSpeed(playbackSpeeds[playbackSpeedIndex])
             longPressSpeedActive = false
@@ -895,6 +1018,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         progressHandler.removeCallbacks(progressUpdater)
+        controlsHandler.removeCallbacksAndMessages(null)
         if (::playerView.isInitialized) playerView.player = null
         player?.release()
         player = null
