@@ -31,7 +31,10 @@ data class VideoItem(
     val duration: Long,
     val folder: String,
     val folderPath: String,
-    val dateAdded: Long
+    val dateAdded: Long,
+    val width: Int,
+    val height: Int,
+    val sizeBytes: Long
 )
 
 class MainActivity : AppCompatActivity() {
@@ -148,7 +151,10 @@ class MainActivity : AppCompatActivity() {
             MediaStore.Video.Media.DISPLAY_NAME,
             MediaStore.Video.Media.DURATION,
             MediaStore.Video.Media.RELATIVE_PATH,
-            MediaStore.Video.Media.DATE_ADDED
+            MediaStore.Video.Media.DATE_ADDED,
+            MediaStore.Video.Media.WIDTH,
+            MediaStore.Video.Media.HEIGHT,
+            MediaStore.Video.Media.SIZE
         )
         val sort = "${MediaStore.Video.Media.DATE_ADDED} DESC"
         try {
@@ -161,6 +167,9 @@ class MainActivity : AppCompatActivity() {
                 val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
                 val pathCol = cursor.getColumnIndex(MediaStore.Video.Media.RELATIVE_PATH)
                 val dateCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_ADDED)
+                val widthCol = cursor.getColumnIndex(MediaStore.Video.Media.WIDTH)
+                val heightCol = cursor.getColumnIndex(MediaStore.Video.Media.HEIGHT)
+                val sizeCol = cursor.getColumnIndex(MediaStore.Video.Media.SIZE)
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idCol)
                     val path = if (pathCol >= 0) cursor.getString(pathCol).orEmpty() else "Videos/"
@@ -173,7 +182,10 @@ class MainActivity : AppCompatActivity() {
                         cursor.getLong(durationCol),
                         folder,
                         folderPath,
-                        cursor.getLong(dateCol)
+                        cursor.getLong(dateCol),
+                        if (widthCol >= 0) cursor.getInt(widthCol) else 0,
+                        if (heightCol >= 0) cursor.getInt(heightCol) else 0,
+                        if (sizeCol >= 0) cursor.getLong(sizeCol) else 0L
                     )
                 }
             }
@@ -373,7 +385,12 @@ class MainActivity : AppCompatActivity() {
         row.addView(thumbnail(video, dp(104), dp(66)))
         val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, 0, 0) }
         labels.addView(text(video.title, 14f, 0xFFEAF0F3.toInt(), true).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.MIDDLE })
-        labels.addView(text("${formatDuration(video.duration)}  •  ${video.folder}", 11f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(5), 0, 0) })
+        val details = mutableListOf(formatDuration(video.duration))
+        val resolution = video.width.coerceAtLeast(0).takeIf { it > 0 }?.let { "${it}×${video.height}" }
+        if (resolution != null) details.add(resolution)
+        if (video.sizeBytes > 0L) details.add(formatFileSize(video.sizeBytes))
+        details.add(video.folder)
+        labels.addView(text(details.joinToString("  •  "), 11f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(5), 0, 0) })
         row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
         content.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
     }
