@@ -37,6 +37,7 @@ class MainActivity : AppCompatActivity() {
     private var allVideos: List<VideoItem> = emptyList()
     private var selectedFolder: String? = null
     private var sortMode = 0
+    private var searchQuery = ""
     private val sortLabels = listOf("Recent", "A–Z", "Longest")
     private val recentPrefs by lazy { getSharedPreferences("gleeshplayer_history", MODE_PRIVATE) }
 
@@ -189,6 +190,30 @@ class MainActivity : AppCompatActivity() {
         }
         header.addView(refresh)
         content.addView(header)
+
+        val searchBox = android.widget.EditText(this).apply {
+            hint = "Search videos or folders"
+            setSingleLine(true)
+            textSize = 14f
+            setTextColor(0xFFF1F5F7.toInt())
+            setHintTextColor(0xFF8997A1.toInt())
+            setPadding(dp(14), dp(11), dp(14), dp(11))
+            setBackgroundColor(0xFF111A22.toInt())
+            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
+            setText(searchQuery)
+            setSelection(text.length)
+            setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
+                    searchQuery = text.toString().trim()
+                    renderHome()
+                    true
+                } else false
+            }
+        }
+        content.addView(searchBox, LinearLayout.LayoutParams(-1, -2).apply {
+            topMargin = dp(14)
+        })
+
         if (folder != null) {
             val back = text("‹  ALL FOLDERS", 13f, 0xFF20D66B.toInt(), true).apply {
                 setPadding(0, dp(22), 0, dp(8))
@@ -196,7 +221,9 @@ class MainActivity : AppCompatActivity() {
             }
             content.addView(back)
             content.addView(text(folder, 26f, 0xFFF1F5F7.toInt(), true))
-            val videos = sortVideos(allVideos.filter { it.folder == folder })
+            val videos = sortVideos(allVideos.filter {
+                it.folder == folder && (searchQuery.isBlank() || it.title.contains(searchQuery, true))
+            })
             content.addView(text("${videos.size} videos", 13f, 0xFF8997A1.toInt()).apply { setPadding(0, dp(5), 0, dp(16)) })
             videos.forEach { addVideoRow(it) }
             return
@@ -204,6 +231,22 @@ class MainActivity : AppCompatActivity() {
 
         content.addView(text("Your videos", 29f, 0xFFF1F5F7.toInt(), true).apply { setPadding(0, dp(25), 0, dp(2)) })
         content.addView(text("${allVideos.size} videos on this device", 13f, 0xFF8997A1.toInt()).apply { setPadding(0, 0, 0, dp(20)) })
+
+        if (searchQuery.isNotBlank()) {
+            val matches = sortVideos(allVideos.filter {
+                it.title.contains(searchQuery, true) || it.folder.contains(searchQuery, true)
+            })
+            sectionTitle("Search results")
+            content.addView(text("${matches.size} matches", 12f, 0xFF8997A1.toInt()))
+            if (matches.isEmpty()) {
+                content.addView(text("No videos match “$searchQuery”.", 14f, 0xFF8997A1.toInt()).apply {
+                    setPadding(0, dp(12), 0, dp(12))
+                })
+            } else {
+                matches.forEach { addVideoRow(it) }
+            }
+            return
+        }
 
         sectionTitle("Recently played")
         val recentIds = recentPrefs.getString("recent", "[]") ?: "[]"
