@@ -4,6 +4,8 @@ import android.content.res.Configuration
 import android.net.Uri
 import android.database.Cursor
 import android.provider.OpenableColumns
+import android.provider.DocumentsContract
+import android.provider.MediaStore
 import android.content.pm.ActivityInfo
 import android.media.AudioManager
 import android.provider.Settings
@@ -37,8 +39,29 @@ class PlayerActivity : AppCompatActivity() {
     private val palette get() = ThemeManager.palette(this)
     private var player: ExoPlayer? = null
     private var externalSubtitleUri: Uri? = null
-    private val subtitlePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) attachExternalSubtitle(uri)
+    private val subtitlePicker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        result.data?.data?.let { attachExternalSubtitle(it) }
+    }
+    private var externalSubtitleName: String? = null
+    private lateinit var subtitleFileLabel: TextView
+    private lateinit var progressSeekBar: SeekBar
+    private lateinit var currentTimeLabel: TextView
+    private lateinit var durationTimeLabel: TextView
+    private var showingRemainingTime = false
+    private val progressHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val progressUpdater = object : Runnable {
+        override fun run() {
+            val current = player
+            if (current != null && ::progressSeekBar.isInitialized) {
+                val duration = current.duration.takeIf { it > 0L } ?: 0L
+                val position = current.currentPosition.coerceAtLeast(0L).coerceAtMost(duration)
+                if (!progressSeekBar.isPressed && duration > 0L) progressSeekBar.progress = (position * 1000L / duration).toInt()
+                currentTimeLabel.text = formatClock(position)
+                durationTimeLabel.text = if (showingRemainingTime) "-${formatClock((duration - position).coerceAtLeast(0L))}" else formatClock(duration)
+            }
+            progressHandler.removeCallbacks(this)
+            progressHandler.postDelayed(this, 500L)
+        }
     }
     private lateinit var playerView: PlayerView
     private lateinit var playbackArea: FrameLayout
@@ -293,7 +316,55 @@ class PlayerActivity : AppCompatActivity() {
                 current.seekTo((current.currentPosition + 10_000L).coerceAtMost(duration))
             }
         }, LinearLayout.LayoutParams(0, -2, 1f))
-        root.addView(controlsBar, LinearLayout.LayoutParams(-1, -2))
+        val timeline = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dpPlayer(14), dpPlayer(2), dpPlayer(14), dpPlayer(2))
+            setBackgroundColor(palette.surface)
+        }
+        val timeRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        currentTimeLabel = TextView(this).apply {
+            text = "0:00"; textSize = 11f; setTextColor(palette.text)
+        }
+        durationTimeLabel = TextView(this).apply {
+            text = "0:00"; textSize = 11f; setTextColor(palette.text)
+            gravity = Gravity.END
+            contentDescription = "Tap to switch between total and remaining time"
+            setOnClickListener { showingRemainingTime = !showingRemainingTime; progressUpdater.run() }
+        }
+        timeRow.addView(currentTimeLabel, LinearLayout.LayoutParams(0, -2, 1f))
+        timeRow.addView(durationTimeLabel)
+        timeline.addView(timeRow)
+        progressSeekBar = SeekBar(this).apply {
+            max = 1000
+            progress = 0
+            progressTintList = android.content.res.ColorStateList.valueOf(palette.accent)
+            thumbTintList = android.content.res.ColorStateList.valueOf(palette.accent)
+            setPadding(0, 0, 0, 0)
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar: SeekBar?, value: Int, fromUser: Boolean) {
+                    if (fromUser) {
+                        val duration = player?.duration ?: 0L
+                        if (duration > 0L) currentTimeLabel.text = formatClock(duration * value / 1000L)
+                    }
+                }
+                override fun onStartTrackingTouch(bar: SeekBar?) {}
+                override fun onStopTrackingTouch(bar: SeekBar?) {
+                    val duration = player?.duration ?: 0L
+                    if (duration > 0L) player?.seekTo(duration * (bar?.progress ?: 0) / 1000L)
+                }
+            })
+        }
+        timeline.addView(progressSeekBar, LinearLayout.LayoutParams(-1, dpPlayer(25)))
+        val bottomControls = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(palette.surface)
+            addView(timeline, LinearLayout.LayoutParams(-1, -2))
+            addView(controlsBar, LinearLayout.LayoutParams(-1, -2))
+        }
+        root.addView(bottomControls, LinearLayout.LayoutParams(-1, -2))
         audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         gestureBrightness = currentBrightness()
         setContentView(root)
@@ -319,6 +390,7 @@ class PlayerActivity : AppCompatActivity() {
             })
             it.setMediaItem(MediaItem.fromUri(uri), resumeAt)
             it.prepare()
+            progressUpdater.run()
             applySubtitleStyle(
                 if (subtitleRemembered()) subtitlePrefs().getFloat("subtitle_size", 22f) else 22f,
                 if (subtitleRemembered()) subtitlePrefs().getInt("subtitle_color", android.graphics.Color.WHITE) else android.graphics.Color.WHITE,
@@ -355,10 +427,42 @@ class PlayerActivity : AppCompatActivity() {
             .setSubtitleConfigurations(listOf(subtitle))
             .build()
         externalSubtitleUri = uri
+        externalSubtitleName = displayName
+        if (::subtitleFileLabel.isInitialized) {
+            subtitleFileLabel.text = "Loaded: $displayName"
+            subtitleFileLabel.setTextColor(palette.accent)
+        }
         currentPlayer.setMediaItem(updatedItem, currentPosition)
         currentPlayer.prepare()
         currentPlayer.playWhenReady = wasPlaying
         android.widget.Toast.makeText(this, "Subtitle loaded: $displayName", android.widget.Toast.LENGTH_SHORT).show()
+    }
+
+    private fun launchSubtitlePicker() {
+        val pickerIntent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/x-subrip"
+            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/x-subrip", "text/plain"))
+            initialSubtitleFolderUri()?.let { putExtra(DocumentsContract.EXTRA_INITIAL_URI, it) }
+        }
+        subtitlePicker.launch(pickerIntent)
+    }
+
+    private fun initialSubtitleFolderUri(): Uri? {
+        val videoUri = intent.data ?: return null
+        return try {
+            contentResolver.query(videoUri, arrayOf(MediaStore.Video.Media.RELATIVE_PATH), null, null, null)?.use { cursor ->
+                if (!cursor.moveToFirst()) return@use null
+                val index = cursor.getColumnIndex(MediaStore.Video.Media.RELATIVE_PATH)
+                if (index < 0) return@use null
+                val relative = cursor.getString(index)?.trim('/') ?: return@use null
+                if (relative.isBlank()) return@use null
+                DocumentsContract.buildDocumentUri(
+                    "com.android.externalstorage.documents",
+                    "primary:$relative"
+                )
+            }
+        } catch (_: Exception) { null }
     }
 
     private fun queryDisplayName(uri: Uri): String {
@@ -461,7 +565,7 @@ class PlayerActivity : AppCompatActivity() {
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(palette.accent)
             setPadding(dpPlayer(12), dpPlayer(8), dpPlayer(4), dpPlayer(8))
-            setOnClickListener { playbackArea.removeView(panel) }
+            setOnClickListener { (panel.parent as? View)?.let { playbackArea.removeView(it) } }
         })
         panel.addView(header)
         fun caption(text: String) {
@@ -501,7 +605,14 @@ class PlayerActivity : AppCompatActivity() {
             }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dpPlayer(5) })
         }
         actionButton("Choose embedded subtitles") { showEmbeddedSubtitleTracks() }
-        actionButton("Load external .srt file") { subtitlePicker.launch(arrayOf("*/*")) }
+        actionButton("Load external .srt file") { launchSubtitlePicker() }
+        subtitleFileLabel = TextView(this).apply {
+            text = externalSubtitleName?.let { "Loaded: $it" } ?: "No external subtitle file loaded"
+            textSize = 11f
+            setTextColor(if (externalSubtitleName == null) palette.muted else palette.accent)
+            setPadding(0, dpPlayer(2), 0, dpPlayer(5))
+        }
+        panel.addView(subtitleFileLabel)
         caption("Subtitle appearance")
         slider("Size", ((currentSize - 12f) / 1.5f).toInt(), 16) { value ->
             currentSize = 12f + value * 1.5f
@@ -628,9 +739,15 @@ class PlayerActivity : AppCompatActivity() {
         feedbackHandler.postDelayed({ (feedbackLabel.parent as? View)?.visibility = View.GONE }, 650L)
     }
 
-    private fun formatGestureTime(position: Long): String {
-        val seconds = position / 1000L
-        return String.format("%d:%02d", seconds / 60L, seconds % 60L)
+    private fun formatGestureTime(position: Long): String = formatClock(position)
+
+    private fun formatClock(position: Long): String {
+        val totalSeconds = (position / 1000L).coerceAtLeast(0L)
+        val hours = totalSeconds / 3600L
+        val minutes = (totalSeconds % 3600L) / 60L
+        val seconds = totalSeconds % 60L
+        return if (hours > 0L) String.format("%d:%02d:%02d", hours, minutes, seconds)
+            else String.format("%d:%02d", minutes, seconds)
     }
 
     private fun currentBrightness(): Float {
@@ -695,6 +812,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        progressHandler.removeCallbacks(progressUpdater)
         if (::playerView.isInitialized) playerView.player = null
         player?.release()
         player = null
