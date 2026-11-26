@@ -474,8 +474,9 @@ class PlayerActivity : AppCompatActivity() {
                 }
             }
         }
-        subtitleDock.addView(captionLabel, FrameLayout.LayoutParams(-1, -2, Gravity.CENTER))
-        playbackContainer.addView(subtitleDock, LinearLayout.LayoutParams(-1, dpPlayer(62)))
+        playbackArea.addView(captionLabel, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+        subtitleDock.visibility = View.GONE
+        playbackContainer.addView(subtitleDock, LinearLayout.LayoutParams(-1, 0))
         rootLayout.addView(playbackContainer, LinearLayout.LayoutParams(-1, 0, 1f))
 
         controlsBar = LinearLayout(this).apply {
@@ -790,19 +791,19 @@ class PlayerActivity : AppCompatActivity() {
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dpPlayer(18), dpPlayer(12), dpPlayer(18), dpPlayer(16))
-            setBackgroundColor(if (palette.isDark) 0xB8182028.toInt() else 0xB8F5F7F8.toInt())
+            setBackgroundColor(if (palette.isDark) 0xA8182028.toInt() else 0xA8F5F7F8.toInt())
             tag = "subtitle_settings_panel"
             elevation = dpPlayer(14).toFloat()
         }
         val wasHeaderVisible = landscapeHeader.visibility == View.VISIBLE
         val wasControlsVisible = bottomControls.visibility == View.VISIBLE
+        val wasPlayerHeaderVisible = playerHeader.visibility == View.VISIBLE
         fun removePanel() {
             (panel.parent as? android.view.ViewGroup)?.removeView(panel)
-            if (isLandscapeNow()) {
-                landscapeHeader.visibility = if (wasHeaderVisible) View.VISIBLE else View.GONE
-                bottomControls.visibility = if (wasControlsVisible) View.VISIBLE else View.GONE
-                if (wasHeaderVisible || wasControlsVisible) scheduleControlsHide()
-            }
+            landscapeHeader.visibility = if (wasHeaderVisible) View.VISIBLE else View.GONE
+            bottomControls.visibility = if (wasControlsVisible) View.VISIBLE else View.GONE
+            playerHeader.visibility = if (wasPlayerHeaderVisible) View.VISIBLE else View.GONE
+            if (isLandscapeNow() && (wasHeaderVisible || wasControlsVisible)) scheduleControlsHide()
         }
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -939,9 +940,11 @@ class PlayerActivity : AppCompatActivity() {
                 false
             }
         }
+        playerHeader.visibility = View.GONE
+        landscapeHeader.visibility = View.GONE
+        bottomControls.visibility = View.GONE
+        playbackArea.findViewWithTag<View>("subtitle_delay_controller")?.let { (it.parent as? android.view.ViewGroup)?.removeView(it) }
         if (isLandscapeNow()) {
-            landscapeHeader.visibility = View.GONE
-            bottomControls.visibility = View.GONE
             playbackArea.addView(scrollPanel, FrameLayout.LayoutParams(dpPlayer(330), -1, Gravity.RIGHT or Gravity.CENTER_VERTICAL).apply {
                 topMargin = dpPlayer(4)
                 bottomMargin = dpPlayer(4)
@@ -1004,6 +1007,8 @@ class PlayerActivity : AppCompatActivity() {
                     if (selected != null) {
                         builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
                         builder.addOverride(androidx.media3.common.TrackSelectionOverride(selected.first, listOf(selected.second)))
+                    } else {
+                        android.widget.Toast.makeText(this, "Subtitle track is not available yet. Reopen the list after loading completes.", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
                 currentPlayer.trackSelectionParameters = builder.build()
@@ -1017,114 +1022,93 @@ class PlayerActivity : AppCompatActivity() {
     private fun showSubtitleDelayController() {
         if (playbackArea.findViewWithTag<View>("subtitle_delay_controller") != null) return
         val card = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+            orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(dpPlayer(14), dpPlayer(8), dpPlayer(14), dpPlayer(12))
+            setPadding(dpPlayer(7), dpPlayer(5), dpPlayer(7), dpPlayer(5))
             background = android.graphics.drawable.GradientDrawable().apply {
                 setColor(0xB91B2229.toInt())
-                cornerRadius = dpPlayer(12).toFloat()
+                cornerRadius = dpPlayer(9).toFloat()
                 setStroke(dpPlayer(1), 0x55FFFFFF.toInt())
             }
             tag = "subtitle_delay_controller"
             elevation = dpPlayer(16).toFloat()
         }
         fun close() { (card.parent as? android.view.ViewGroup)?.removeView(card) }
-        card.addView(TextView(this).apply {
-            text = "×"
-            textSize = 24f
-            gravity = Gravity.END or Gravity.CENTER_VERTICAL
-            setTextColor(android.graphics.Color.LTGRAY)
-            contentDescription = "Close subtitle delay"
-            setOnClickListener { close() }
-        }, LinearLayout.LayoutParams(-1, dpPlayer(30)))
         val minus = TextView(this).apply {
-            text = "−"
-            textSize = 27f
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            setTextColor(android.graphics.Color.WHITE)
+            text = "−"; textSize = 21f; typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER; setTextColor(android.graphics.Color.WHITE)
             background = android.graphics.drawable.GradientDrawable().apply {
-                setColor(0xFFFF5700.toInt())
-                cornerRadius = dpPlayer(4).toFloat()
+                setColor(0xFFFF5700.toInt()); cornerRadius = dpPlayer(5).toFloat()
             }
         }
-        val value = TextView(this).apply {
-            textSize = 17f
-            gravity = Gravity.CENTER
-            setTextColor(android.graphics.Color.WHITE)
-            setPadding(0, dpPlayer(5), 0, dpPlayer(5))
-        }
-        val secondsInput = android.widget.EditText(this).apply {
-            hint = "Seconds (e.g. -1.5)"
+        val value = android.widget.EditText(this).apply {
             setSingleLine(true)
             textSize = 14f
             gravity = Gravity.CENTER
             inputType = android.text.InputType.TYPE_CLASS_NUMBER or
                 android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
             setTextColor(android.graphics.Color.WHITE)
-            setHintTextColor(0x99FFFFFF.toInt())
-            setPadding(dpPlayer(6), 0, dpPlayer(6), 0)
-            background = android.graphics.drawable.GradientDrawable().apply {
-                setColor(0x33222222)
-                cornerRadius = dpPlayer(6).toFloat()
-                setStroke(dpPlayer(1), 0x66888888)
-            }
+            setSelectAllOnFocus(true)
+            setPadding(0, 0, 0, 0)
+            background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
+            contentDescription = "Editable subtitle delay in seconds"
             setOnFocusChangeListener { _, hasFocus ->
                 if (!hasFocus) {
-                    val parsed = text?.toString()?.trim()?.toFloatOrNull()
-                    subtitleDelayMs = ((parsed ?: 0f) * 1000f).toLong().coerceIn(-10_000L, 10_000L)
-                    value.text = if (subtitleDelayMs == 0L) "0.0s" else String.format(java.util.Locale.US, "%+.1fs", subtitleDelayMs / 1000f)
+                    subtitleDelayMs = ((text?.toString()?.trim()?.toFloatOrNull() ?: 0f) * 1000f)
+                        .toLong().coerceIn(-10_000L, 10_000L)
+                    refreshValue()
                 }
             }
             addTextChangedListener(object : android.text.TextWatcher {
-                override fun beforeTextChanged(text: CharSequence?, start: Int, count: Int, after: Int) {}
-                override fun onTextChanged(text: CharSequence?, start: Int, before: Int, count: Int) {
-                    if (text.isNullOrEmpty()) {
-                        subtitleDelayMs = 0L
-                        value.text = "0.0s"
-                    }
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    if (s.isNullOrEmpty()) subtitleDelayMs = 0L
                 }
-                override fun afterTextChanged(text: android.text.Editable?) {}
+                override fun afterTextChanged(s: android.text.Editable?) {}
             })
         }
         val plus = TextView(this).apply {
-            text = "+"
-            textSize = 27f
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            setTextColor(android.graphics.Color.WHITE)
+            text = "+"; textSize = 21f; typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER; setTextColor(android.graphics.Color.WHITE)
             background = android.graphics.drawable.GradientDrawable().apply {
-                setColor(0xFFFF5700.toInt())
-                cornerRadius = dpPlayer(4).toFloat()
+                setColor(0xFFFF5700.toInt()); cornerRadius = dpPlayer(5).toFloat()
             }
         }
-        fun refresh() {
-            value.text = String.format(java.util.Locale.US, "%+.1fs", subtitleDelayMs / 1000f)
-            if (subtitleDelayMs == 0L) value.text = "0.0s"
-            if (!secondsInput.hasFocus()) secondsInput.setText(String.format(java.util.Locale.US, "%.1f", subtitleDelayMs / 1000f))
+        val closeButton = TextView(this).apply {
+            text = "×"; textSize = 19f; gravity = Gravity.CENTER
+            setTextColor(0xFFCCCCCC.toInt()); contentDescription = "Close subtitle delay"
+            setOnClickListener { close() }
+        }
+        fun refreshValue() {
+            val shown = String.format(java.util.Locale.US, "%.1f", subtitleDelayMs / 1000f)
+            if (!value.hasFocus()) value.setText(shown)
         }
         minus.setOnClickListener {
+            commitDelayValue()
             subtitleDelayMs = (subtitleDelayMs - 100L).coerceAtLeast(-10_000L)
-            refresh()
+            refreshValue()
         }
         plus.setOnClickListener {
+            commitDelayValue()
             subtitleDelayMs = (subtitleDelayMs + 100L).coerceAtMost(10_000L)
-            refresh()
+            refreshValue()
         }
-        card.addView(minus, LinearLayout.LayoutParams(dpPlayer(42), dpPlayer(38)))
-        card.addView(value, LinearLayout.LayoutParams(-1, dpPlayer(34)))
-        card.addView(secondsInput, LinearLayout.LayoutParams(-1, dpPlayer(42)).apply {
-            topMargin = dpPlayer(4)
-            bottomMargin = dpPlayer(5)
-        })
-        card.addView(plus, LinearLayout.LayoutParams(dpPlayer(42), dpPlayer(38)))
-        refresh()
+        card.addView(minus, LinearLayout.LayoutParams(dpPlayer(32), dpPlayer(32)))
+        card.addView(value, LinearLayout.LayoutParams(dpPlayer(62), dpPlayer(32)))
+        card.addView(plus, LinearLayout.LayoutParams(dpPlayer(32), dpPlayer(32)))
+        card.addView(closeButton, LinearLayout.LayoutParams(dpPlayer(24), dpPlayer(32)))
+        refreshValue()
         val gravity = if (isLandscapeNow()) Gravity.RIGHT or Gravity.CENTER_VERTICAL else Gravity.RIGHT or Gravity.BOTTOM
-        playbackArea.addView(card, FrameLayout.LayoutParams(dpPlayer(142), -2, gravity).apply {
-            rightMargin = dpPlayer(14)
-            bottomMargin = if (isLandscapeNow()) 0 else dpPlayer(20)
+        playbackArea.addView(card, FrameLayout.LayoutParams(-2, -2, gravity).apply {
+            rightMargin = dpPlayer(8)
+            bottomMargin = if (isLandscapeNow()) 0 else dpPlayer(10)
         })
         playbackArea.bringChildToFront(card)
+    }
+
+    private fun commitDelayValue() {
+        // The editable value is committed on focus loss; clearing it means normal timing.
+        if (subtitleDelayMs == 0L) pendingSubtitleCue?.let { captionLabel.removeCallbacks(it) }
     }
 
     private class SeekFeedbackOverlay(context: Context) : View(context) {
