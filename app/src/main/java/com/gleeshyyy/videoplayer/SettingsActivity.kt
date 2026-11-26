@@ -19,6 +19,7 @@ class SettingsActivity : AppCompatActivity() {
     private val speedLabels = listOf("2×", "4×", "8×")
     private lateinit var root: LinearLayout
     private lateinit var body: LinearLayout
+    private lateinit var settingsBackground: android.widget.ImageView
     private val palette get() = ThemeManager.palette(this)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,9 +29,34 @@ class SettingsActivity : AppCompatActivity() {
             setPadding(dp(20), dp(18), dp(20), dp(24))
             setBackgroundColor(palette.background)
         }
-        val scroll = android.widget.ScrollView(this).apply { isFillViewport = true; addView(root) }
-        setContentView(scroll)
+        val frame = android.widget.FrameLayout(this)
+        settingsBackground = android.widget.ImageView(this).apply { scaleType = android.widget.ImageView.ScaleType.CENTER_CROP }
+        frame.addView(settingsBackground, android.widget.FrameLayout.LayoutParams(-1, -1))
+        val scroll = android.widget.ScrollView(this).apply { isFillViewport = true; setBackgroundColor(android.graphics.Color.TRANSPARENT); addView(root) }
+        frame.addView(scroll, android.widget.FrameLayout.LayoutParams(-1, -1))
+        setContentView(frame)
+        applySettingsTheme()
         showMenu()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::settingsBackground.isInitialized) applySettingsTheme()
+    }
+
+    private fun applySettingsTheme() {
+        val prefs = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+        val isPicture = prefs.getString("theme_mode", "dark") == "picture"
+        val image = if (isPicture) ThemeManager.loadPicture(this, prefs.getString("theme_picture", null)) else null
+        settingsBackground.setImageBitmap(image)
+        settingsBackground.alpha = if (image == null) 1f else (1f - prefs.getInt("theme_transparency", 35).coerceIn(0,100) / 100f * .55f).coerceIn(.35f,1f)
+        ThemeManager.blur(settingsBackground, prefs.getInt("theme_blur", 0).toFloat())
+        root.setBackgroundColor(if (image == null) palette.background else android.graphics.Color.TRANSPARENT)
+    }
+
+    private fun panelBackground(): Int {
+        if (getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getString("theme_mode", "dark") != "picture") return palette.surface
+        return if (palette.isDark) 0x66000000 else 0x66FFFFFF
     }
 
     private fun beginPage(title: String, backToMenu: Boolean = false) {
@@ -61,7 +87,7 @@ class SettingsActivity : AppCompatActivity() {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(15), dp(16), dp(15))
-            setBackgroundColor(palette.surface)
+            setBackgroundColor(panelBackground())
             setOnClickListener { showPage(page) }
         }
         row.addView(label(title, 16f, palette.text, true))
@@ -84,7 +110,7 @@ class SettingsActivity : AppCompatActivity() {
         body.addView(label("Choose which folders appear in your video library. Disabled folders are excluded from GleeshPlayer scan.", 13f, palette.muted).apply { setPadding(0, dp(18), 0, dp(18)) })
         val permission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_VIDEO else Manifest.permission.READ_EXTERNAL_STORAGE
         if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
-            body.addView(label("Allow video access on the home screen to manage scanned folders.", 14f, palette.text).apply { setPadding(dp(14), dp(16), dp(14), dp(16)); setBackgroundColor(palette.surface) })
+            body.addView(label("Allow video access on the home screen to manage scanned folders.", 14f, palette.text).apply { setPadding(dp(14), dp(16), dp(14), dp(16)); setBackgroundColor(panelBackground()) })
             return
         }
         val folders = linkedMapOf<String, Pair<String, Int>>()
@@ -151,7 +177,7 @@ class SettingsActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(15), dp(14), dp(15), dp(14))
-            setBackgroundColor(palette.surface)
+            setBackgroundColor(panelBackground())
         }
         historyRow.addView(label("Show History", 16f, palette.text, true), LinearLayout.LayoutParams(0, -2, 1f))
         val toggle = SwitchCompat(this).apply {
@@ -199,7 +225,7 @@ class SettingsActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(15), dp(14), dp(15), dp(14))
-            setBackgroundColor(palette.surface)
+            setBackgroundColor(panelBackground())
         }
         val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         labels.addView(label("Remember Subtitles", 16f, palette.text, true))
@@ -236,7 +262,7 @@ class SettingsActivity : AppCompatActivity() {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(15), dp(13), dp(15), dp(13))
-            setBackgroundColor(palette.surface)
+            setBackgroundColor(panelBackground())
         }
         row.addView(label(title, 15f, palette.text, true))
         row.addView(label(value, 12f, palette.muted).apply { setPadding(0, dp(4), 0, 0) })
