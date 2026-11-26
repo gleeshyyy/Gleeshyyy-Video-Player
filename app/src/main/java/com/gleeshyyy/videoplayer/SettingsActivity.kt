@@ -247,7 +247,6 @@ class SettingsActivity : AppCompatActivity() {
                 val index = values.indexOf(selected).coerceAtLeast(0)
                 val dialog = androidx.appcompat.app.AlertDialog.Builder(this@SettingsActivity)
                     .setTitle(title)
-                    .setMessage(description)
                     .setSingleChoiceItems(labels.toTypedArray(), index) { d, which ->
                         val editor = prefs.edit()
                         when (key) {
@@ -322,9 +321,11 @@ class SettingsActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(15), dp(13), dp(15), dp(13))
             setBackgroundColor(panelBackground())
+            isClickable = true
+            isFocusable = true
         }
-        row.addView(label(title, 15f, palette.text, true))
-        row.addView(label(value, 12f, palette.muted).apply { setPadding(0, dp(4), 0, 0) })
+        row.addView(label(title, 15f, palette.text, true).apply { isClickable = false })
+        row.addView(label(value, 12f, palette.muted).apply { setPadding(0, dp(4), 0, 0); isClickable = false })
         return row
     }
 
