@@ -110,6 +110,7 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var audioManager: AudioManager
     private lateinit var feedbackLabel: TextView
     private lateinit var feedbackBar: android.widget.ProgressBar
+    private lateinit var seekFeedbackOverlay: SeekFeedbackOverlay
     private val feedbackHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var scrubStartPosition = 0L
     private var scrubPreviewPosition = 0L
@@ -259,7 +260,7 @@ class PlayerActivity : AppCompatActivity() {
                             val target = (current - seekIntervalMs).coerceIn(0L, duration)
                             val moved = current - target
                             player?.seekTo(target)
-                            if (moved > 0L) showGestureFeedback("−${(moved / 1000L).coerceAtLeast(1L)} seconds", 0, false)
+                            if (moved > 0L) seekFeedbackOverlay.show(-1, (moved / 1000L).coerceAtLeast(1L))
                         }
                     }
                     zone > 2f / 3f -> {
@@ -269,7 +270,7 @@ class PlayerActivity : AppCompatActivity() {
                             val target = (current + seekIntervalMs).coerceIn(0L, duration)
                             val moved = target - current
                             player?.seekTo(target)
-                            if (moved > 0L) showGestureFeedback("+${(moved / 1000L).coerceAtLeast(1L)} seconds", 100, false)
+                            if (moved > 0L) seekFeedbackOverlay.show(1, (moved / 1000L).coerceAtLeast(1L))
                         }
                     }
                     else -> {
@@ -297,6 +298,8 @@ class PlayerActivity : AppCompatActivity() {
             setOnTouchListener { _, event -> handlePlaybackGesture(event) }
         }
         playbackArea.addView(gestureLayer, FrameLayout.LayoutParams(-1, -1))
+        seekFeedbackOverlay = SeekFeedbackOverlay(this)
+        playbackArea.addView(seekFeedbackOverlay, FrameLayout.LayoutParams(-1, -1))
         landscapeHeader = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -851,6 +854,79 @@ class PlayerActivity : AppCompatActivity() {
         playbackArea.addView(scroll, FrameLayout.LayoutParams(-1, dpPlayer(350), Gravity.BOTTOM))
         scroll.tag = "subtitle_customization_scroll"
         playbackArea.bringChildToFront(scroll)
+    }
+
+    private class SeekFeedbackOverlay(context: Context) : View(context) {
+        private val shade = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xB3444444.toInt(); style = Paint.Style.FILL }
+        private val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE; style = Paint.Style.FILL }
+        private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.WHITE
+            textSize = 25f * resources.displayMetrics.density
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textAlign = Paint.Align.CENTER
+            setShadowLayer(3f * resources.displayMetrics.density, 0f, 1f * resources.displayMetrics.density, 0x99000000.toInt())
+        }
+        private val hideHandler = android.os.Handler(android.os.Looper.getMainLooper())
+        private var direction = 1
+        private var seconds = 0L
+        private val hide = Runnable { visibility = View.GONE }
+
+        fun show(direction: Int, seconds: Long) {
+            this.direction = direction
+            this.seconds = seconds
+            hideHandler.removeCallbacks(hide)
+            visibility = View.VISIBLE
+            invalidate()
+            hideHandler.postDelayed(hide, 850L)
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            val w = width.toFloat()
+            val h = height.toFloat()
+            if (w <= 0f || h <= 0f) return
+            val path = android.graphics.Path()
+            val edge = w * 0.40f
+            if (direction < 0) {
+                path.moveTo(0f, 0f)
+                path.lineTo(edge * 0.55f, 0f)
+                path.quadTo(edge * 1.08f, h * 0.50f, edge * 0.55f, h)
+                path.lineTo(0f, h)
+            } else {
+                path.moveTo(w, 0f)
+                path.lineTo(w - edge * 0.55f, 0f)
+                path.quadTo(w - edge * 1.08f, h * 0.50f, w - edge * 0.55f, h)
+                path.lineTo(w, h)
+            }
+            path.close()
+            canvas.drawPath(path, shade)
+
+            val cx = if (direction < 0) w * 0.22f else w * 0.78f
+            val cy = h * 0.50f
+            val d = resources.displayMetrics.density
+            val iconTop = cy - 18f * d
+            val iconBottom = cy + 18f * d
+            val barWidth = 7f * d
+            val barGap = 5f * d
+            val barHeight = 28f * d
+            val barX = if (direction < 0) cx + 7f * d else cx - 7f * d
+            canvas.drawRoundRect(barX - barWidth - barGap, cy - barHeight / 2f, barX - barGap, cy + barHeight / 2f, 2f * d, 2f * d, iconPaint)
+            canvas.drawRoundRect(barX, cy - barHeight / 2f, barX + barWidth, cy + barHeight / 2f, 2f * d, 2f * d, iconPaint)
+            val triangle = android.graphics.Path()
+            if (direction > 0) {
+                triangle.moveTo(cx + 25f * d, iconTop)
+                triangle.lineTo(cx + 25f * d, iconBottom)
+                triangle.lineTo(cx + 42f * d, cy)
+            } else {
+                triangle.moveTo(cx - 25f * d, iconTop)
+                triangle.lineTo(cx - 25f * d, iconBottom)
+                triangle.lineTo(cx - 42f * d, cy)
+            }
+            triangle.close()
+            canvas.drawPath(triangle, iconPaint)
+            textPaint.textSize = 24f * d
+            canvas.drawText((if (direction > 0) "+" else "−") + seconds + "s", cx, cy + 66f * d, textPaint)
+        }
     }
 
     private class PhoneOrientationIcon(context: Context) : View(context) {
