@@ -25,6 +25,8 @@ import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.common.text.CueGroup
 import androidx.media3.common.C
 import androidx.media3.common.MimeTypes
 import androidx.media3.exoplayer.ExoPlayer
@@ -39,6 +41,10 @@ class PlayerActivity : AppCompatActivity() {
         if (uri != null) attachExternalSubtitle(uri)
     }
     private lateinit var playerView: PlayerView
+    private lateinit var playbackArea: FrameLayout
+    private lateinit var captionLabel: TextView
+    private lateinit var controlsBar: LinearLayout
+    private lateinit var playPauseButton: TextView
     private var videoKey: String = ""
     private val playbackSpeeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
     private var playbackSpeedIndex = 2
@@ -61,8 +67,6 @@ class PlayerActivity : AppCompatActivity() {
     private var scrubStartPosition = 0L
     private var scrubPreviewPosition = 0L
     private var gestureStartX = 0f
-    private var subtitleDragStartY = 0f
-    private var subtitleInitialTranslation = 0f
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -145,20 +149,19 @@ class PlayerActivity : AppCompatActivity() {
         heading.addView(rotateButton)
         root.addView(heading)
         playerView = PlayerView(this).apply {
-            useController = true
+            useController = false
             setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
             setShowRewindButton(false)
             setShowFastForwardButton(false)
             setBackgroundColor(0xFF000000.toInt())
         }
-        val playbackArea = FrameLayout(this)
+        playbackArea = FrameLayout(this)
         playbackArea.addView(playerView, FrameLayout.LayoutParams(-1, -1))
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: MotionEvent): Boolean = true
 
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                if (playerView.isControllerFullyVisible) playerView.hideController()
-                else playerView.showController()
+                controlsBar.visibility = if (controlsBar.visibility == View.VISIBLE) View.GONE else View.VISIBLE
                 return true
             }
 
@@ -183,7 +186,7 @@ class PlayerActivity : AppCompatActivity() {
             }
 
             override fun onLongPress(e: MotionEvent) {
-                if (gestureMode == 4) return
+                
                 player?.setPlaybackSpeed(longPressSpeed)
                 longPressSpeedActive = true
                 showGestureFeedback("${longPressSpeed.toInt()}× playing…", 100, true)
@@ -223,22 +226,81 @@ class PlayerActivity : AppCompatActivity() {
         feedback.addView(feedbackLabel)
         feedback.addView(feedbackBar, LinearLayout.LayoutParams(dpPlayer(150), dpPlayer(7)).apply { topMargin = dpPlayer(9) })
         playbackArea.addView(feedback, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
-        root.addView(playbackArea, LinearLayout.LayoutParams(-1, 0, 1f))
+        val playbackContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            clipChildren = false
+            clipToPadding = false
+        }
+        playbackContainer.addView(playbackArea, LinearLayout.LayoutParams(-1, 0, 1f))
+        val subtitleDock = FrameLayout(this).apply {
+            clipChildren = false
+            clipToPadding = false
+            setBackgroundColor(palette.background)
+        }
+        captionLabel = TextView(this).apply {
+            textSize = 22f
+            gravity = Gravity.CENTER
+            setTextColor(android.graphics.Color.WHITE)
+            typeface = Typeface.DEFAULT_BOLD
+            setShadowLayer(dpPlayer(3).toFloat(), 0f, 1f, android.graphics.Color.BLACK)
+            visibility = View.GONE
+            setPadding(dpPlayer(12), dpPlayer(6), dpPlayer(12), dpPlayer(6))
+            setOnTouchListener { view, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        view.tag = floatArrayOf(event.rawY, view.translationY)
+                        true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val values = view.tag as? FloatArray
+                        if (values != null) {
+                            view.translationY = (values[1] + event.rawY - values[0]).coerceIn(-playbackArea.height.toFloat(), 0f)
+                        }
+                        true
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> true
+                    else -> true
+                }
+            }
+        }
+        subtitleDock.addView(captionLabel, FrameLayout.LayoutParams(-1, -2, Gravity.CENTER))
+        playbackContainer.addView(subtitleDock, LinearLayout.LayoutParams(-1, dpPlayer(62)))
+        root.addView(playbackContainer, LinearLayout.LayoutParams(-1, 0, 1f))
+
+        controlsBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dpPlayer(18), dpPlayer(5), dpPlayer(18), dpPlayer(5))
+            setBackgroundColor(palette.surface)
+        }
+        fun controlButton(symbol: String, description: String, action: () -> Unit): TextView =
+            TextView(this).apply {
+                text = symbol
+                contentDescription = description
+                textSize = 25f
+                gravity = Gravity.CENTER
+                setTextColor(palette.text)
+                setPadding(dpPlayer(28), dpPlayer(8), dpPlayer(28), dpPlayer(8))
+                setOnClickListener { action() }
+            }
+        controlsBar.addView(controlButton("⏮", "Rewind 10 seconds") {
+            val current = player ?: return@controlButton
+            current.seekTo((current.currentPosition - 10_000L).coerceAtLeast(0L))
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        playPauseButton = controlButton("Ⅱ", "Play or pause") {
+            player?.let { if (it.isPlaying) it.pause() else it.play() }
+        }
+        controlsBar.addView(playPauseButton, LinearLayout.LayoutParams(0, -2, 1f))
+        controlsBar.addView(controlButton("⏭", "Forward 10 seconds") {
+            val current = player ?: return@controlButton
+            val duration = current.duration.coerceAtLeast(0L)
+            current.seekTo((current.currentPosition + 10_000L).coerceAtMost(duration))
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        root.addView(controlsBar, LinearLayout.LayoutParams(-1, -2))
         audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         gestureBrightness = currentBrightness()
         setContentView(root)
-        playerView.subtitleView?.setOnTouchListener { view, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> { view.tag = event.rawY - view.translationY; true }
-                MotionEvent.ACTION_MOVE -> {
-                    val start = (view.tag as? Float) ?: event.rawY
-                    view.translationY = (event.rawY - start).coerceIn(-playerView.height * .45f, playerView.height * .45f)
-                    true
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> true
-                else -> true
-            }
-        }
+        playerView.subtitleView?.visibility = View.GONE
         window.statusBarColor = palette.background
         window.navigationBarColor = palette.background
         updateSystemBars()
@@ -247,6 +309,17 @@ class PlayerActivity : AppCompatActivity() {
         val resumeAt = prefs.getLong("position_$videoKey", 0L).coerceAtLeast(0L)
         player = ExoPlayer.Builder(this).build().also {
             playerView.player = it
+            it.addListener(object : Player.Listener {
+                override fun onCues(cueGroup: CueGroup) {
+                    val line = cueGroup.cues.mapNotNull { cue -> cue.text?.toString()?.takeIf { value -> value.isNotBlank() } }
+                        .joinToString("\n")
+                    captionLabel.text = line
+                    captionLabel.visibility = if (line.isBlank()) View.GONE else View.VISIBLE
+                }
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    playPauseButton.text = if (isPlaying) "Ⅱ" else "▶"
+                }
+            })
             it.setMediaItem(MediaItem.fromUri(uri), resumeAt)
             it.prepare()
             applySubtitleStyle(
@@ -350,12 +423,9 @@ class PlayerActivity : AppCompatActivity() {
     private fun subtitleRemembered(): Boolean = subtitlePrefs().getBoolean("remember_subtitles", true)
 
     private fun applySubtitleStyle(size: Float, color: Int, position: Int, save: Boolean) {
-        val subtitleView = playerView.subtitleView ?: return
-        subtitleView.setFixedTextSize(TypedValue.COMPLEX_UNIT_SP, size)
-        subtitleView.setStyle(CaptionStyleCompat(color, android.graphics.Color.TRANSPARENT,
-            android.graphics.Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_OUTLINE,
-            android.graphics.Color.BLACK, Typeface.DEFAULT_BOLD))
-        subtitleView.setBottomPaddingFraction(0.02f + (position.coerceIn(0, 100) / 100f) * 0.33f)
+        captionLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, size)
+        captionLabel.setTextColor(color)
+        captionLabel.translationY = -(position.coerceIn(0, 100) / 100f) * playbackArea.height.toFloat()
         if (save && subtitleRemembered()) {
             subtitlePrefs().edit().putFloat("subtitle_size", size).putInt("subtitle_color", color)
                 .putInt("subtitle_position", position).apply()
@@ -363,20 +433,53 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun showSubtitleCustomization() {
+        if (playbackArea.findViewWithTag<View>("subtitle_customization_sheet") != null) return
         val prefs = subtitlePrefs()
         val remembered = subtitleRemembered()
         var currentSize = if (remembered) prefs.getFloat("subtitle_size", 22f) else 22f
         var currentColor = if (remembered) prefs.getInt("subtitle_color", android.graphics.Color.WHITE) else android.graphics.Color.WHITE
         var currentPosition = if (remembered) prefs.getInt("subtitle_position", 18) else 18
-        val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dpPlayer(22), dpPlayer(8), dpPlayer(22), dpPlayer(4)) }
+
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dpPlayer(18), dpPlayer(10), dpPlayer(18), dpPlayer(14))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(if (palette.isDark) 0xE6121A20.toInt() else 0xE6F3F6F7.toInt())
+                cornerRadius = dpPlayer(18).toFloat()
+            }
+            tag = "subtitle_customization_sheet"
+        }
+        val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        header.addView(TextView(this).apply {
+            text = "Subtitle customization"
+            textSize = 17f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(palette.text)
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        header.addView(TextView(this).apply {
+            text = "DONE"
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(palette.accent)
+            setPadding(dpPlayer(12), dpPlayer(8), dpPlayer(4), dpPlayer(8))
+            setOnClickListener { playbackArea.removeView(panel) }
+        })
+        panel.addView(header)
         fun caption(text: String) {
-            panel.addView(TextView(this).apply { this.text = text; textSize = 13f; setTextColor(palette.muted); setPadding(0, dpPlayer(10), 0, dpPlayer(4)) })
+            panel.addView(TextView(this).apply {
+                this.text = text
+                textSize = 12f
+                setTextColor(palette.muted)
+                setPadding(0, dpPlayer(8), 0, dpPlayer(2))
+            })
         }
         fun slider(title: String, initial: Int, maxValue: Int, changed: (Int) -> Unit) {
             caption(title)
             panel.addView(SeekBar(this).apply {
                 max = maxValue
                 progress = initial.coerceIn(0, maxValue)
+                progressTintList = android.content.res.ColorStateList.valueOf(palette.accent)
+                thumbTintList = android.content.res.ColorStateList.valueOf(palette.accent)
                 setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                     override fun onProgressChanged(bar: SeekBar?, value: Int, fromUser: Boolean) { if (fromUser) changed(value) }
                     override fun onStartTrackingTouch(bar: SeekBar?) {}
@@ -384,39 +487,59 @@ class PlayerActivity : AppCompatActivity() {
                 })
             })
         }
-        val trackActions = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        trackActions.addView(Button(this).apply {
-            text = "Choose embedded subtitles"
-            setOnClickListener { showEmbeddedSubtitleTracks() }
-        }, LinearLayout.LayoutParams(-1, dpPlayer(46)).apply { bottomMargin = dpPlayer(6) })
-        trackActions.addView(Button(this).apply {
-            text = "Load external .srt file"
-            setOnClickListener { subtitlePicker.launch(arrayOf("*/*")) }
-        }, LinearLayout.LayoutParams(-1, dpPlayer(46)))
-        panel.addView(trackActions)
+        fun actionButton(title: String, action: () -> Unit) {
+            panel.addView(TextView(this).apply {
+                text = title
+                textSize = 13f
+                gravity = Gravity.CENTER
+                setTextColor(palette.text)
+                setPadding(dpPlayer(10), dpPlayer(9), dpPlayer(10), dpPlayer(9))
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(0xFF27343D.toInt())
+                    cornerRadius = dpPlayer(8).toFloat()
+                }
+                setOnClickListener { action() }
+            }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dpPlayer(5) })
+        }
+        actionButton("Choose embedded subtitles") { showEmbeddedSubtitleTracks() }
+        actionButton("Load external .srt file") { subtitlePicker.launch(arrayOf("*/*")) }
         caption("Subtitle appearance")
-        slider("Subtitle size", ((currentSize - 12f) / 1.5f).toInt(), 16) { value ->
+        slider("Size", ((currentSize - 12f) / 1.5f).toInt(), 16) { value ->
             currentSize = 12f + value * 1.5f
             applySubtitleStyle(currentSize, currentColor, currentPosition, true)
         }
-        caption("Subtitle color")
+        caption("Color")
         val colors = listOf("White" to android.graphics.Color.WHITE, "Yellow" to 0xFFFFFF00.toInt(), "Cyan" to 0xFF00E5FF.toInt(), "Green" to 0xFF20D66B.toInt())
         val colorRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         colors.forEach { (name, value) ->
-            colorRow.addView(Button(this).apply {
+            colorRow.addView(TextView(this).apply {
                 text = name
-                textSize = 10f
+                textSize = 11f
+                gravity = Gravity.CENTER
                 setTextColor(if (value == android.graphics.Color.WHITE || value == 0xFFFFFF00.toInt()) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
-                backgroundTintList = android.content.res.ColorStateList.valueOf(value)
-                setOnClickListener { currentColor = value; applySubtitleStyle(currentSize, currentColor, currentPosition, true) }
-            }, LinearLayout.LayoutParams(0, dpPlayer(42), 1f).apply { marginEnd = dpPlayer(4) })
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(value)
+                    cornerRadius = dpPlayer(7).toFloat()
+                }
+                setOnClickListener {
+                    currentColor = value
+                    applySubtitleStyle(currentSize, currentColor, currentPosition, true)
+                }
+            }, LinearLayout.LayoutParams(0, dpPlayer(38), 1f).apply { marginEnd = dpPlayer(5) })
         }
         panel.addView(colorRow)
-        slider("Vertical position (higher to lower)", currentPosition, 100) { value ->
+        slider("Position (drag subtitle label below the video to move it)", currentPosition, 100) { value ->
             currentPosition = value
             applySubtitleStyle(currentSize, currentColor, currentPosition, true)
         }
-        AlertDialog.Builder(this).setTitle("Subtitle customization").setView(panel).setPositiveButton("Done", null).show()
+        val scroll = android.widget.ScrollView(this).apply {
+            isFillViewport = false
+            addView(panel)
+            background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
+        }
+        playbackArea.addView(scroll, FrameLayout.LayoutParams(-1, dpPlayer(350), Gravity.BOTTOM))
+        scroll.tag = "subtitle_customization_scroll"
+        playbackArea.bringChildToFront(scroll)
     }
 
     private fun dpPlayer(value: Int): Int = (value * resources.displayMetrics.density).toInt()
@@ -432,11 +555,7 @@ class PlayerActivity : AppCompatActivity() {
                 gestureStartX = event.x
                 scrubStartPosition = player?.currentPosition ?: 0L
                 scrubPreviewPosition = scrubStartPosition
-                gestureMode = if (event.x in (width * .20f)..(width * .80f) && event.y > height * .68f) 4 else 0
-                if (gestureMode == 4) {
-                    subtitleDragStartY = event.y
-                    subtitleInitialTranslation = playerView.subtitleView?.translationY ?: 0f
-                }
+                gestureMode = 0
                 gestureVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() /
                     audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
                 return true
@@ -472,14 +591,6 @@ class PlayerActivity : AppCompatActivity() {
                             0
                         )
                         showGestureFeedback("VOLUME  ${(gestureVolume * 100).toInt()}%", (gestureVolume * 100).toInt(), true)
-                    }
-                    4 -> {
-                        val subtitleView = playerView.subtitleView
-                        if (subtitleView != null) {
-                            subtitleView.translationY = (subtitleInitialTranslation + event.y - subtitleDragStartY)
-                                .coerceIn(-height * .45f, height * .45f)
-                        }
-                        showGestureFeedback("MOVE SUBTITLES", 50, true)
                     }
                 }
                 lastGestureX = event.x
