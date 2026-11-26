@@ -157,6 +157,11 @@ class MainActivity : AppCompatActivity() {
         } else requestVideoPermission()
     }
 
+    private fun panelBackground(): Int {
+        if (getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getString("theme_mode", "dark") != "picture") return palette.surface
+        return if (palette.isDark) 0x66000000 else 0x66FFFFFF
+    }
+
     private fun applyLibraryTheme() {
         val p = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
         val picture = if (p.getString("theme_mode", "dark") == "picture") ThemeManager.loadPicture(this, p.getString("theme_picture", null)) else null
@@ -346,7 +351,7 @@ class MainActivity : AppCompatActivity() {
             setTextColor(palette.text)
             setHintTextColor(palette.muted)
             setPadding(dp(14), dp(11), dp(14), dp(11))
-            setBackgroundColor(palette.surface)
+            setBackgroundColor(panelBackground())
             imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
             setText(searchQuery)
             setSelection(text.length)
@@ -451,7 +456,7 @@ class MainActivity : AppCompatActivity() {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(dp(14), dp(13), dp(14), dp(13))
-                    setBackgroundColor(palette.surface)
+                    setBackgroundColor(panelBackground())
                     setOnClickListener { selectedFolder = path; renderHome() }
                 }
                 val icon = text("▣", 25f, palette.accent, true)
@@ -489,7 +494,7 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(10), dp(9), dp(10), dp(9))
-            setBackgroundColor(palette.surface)
+            setBackgroundColor(panelBackground())
             setOnClickListener { openVideo(video) }
         }
         row.addView(thumbnail(video, dp(104), dp(66)))
