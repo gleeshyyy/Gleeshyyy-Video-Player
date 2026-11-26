@@ -100,7 +100,7 @@ class SettingsActivity : AppCompatActivity() {
         historyRow.addView(toggle)
         body.addView(historyRow)
         body.addView(label("ABOUT", 12f, 0xFF20D66B.toInt(), true).apply { setPadding(0, dp(28), 0, dp(12)) })
-        body.addView(settingRow("Version", BuildConfig.VERSION_NAME))
+        body.addView(settingRow("Version", "1.1"))
         body.addView(settingRow("Developer", "Muhirwa Elyse"))
         body.addView(settingRow("Assistant Developer", "Lil Ty"))
     }
