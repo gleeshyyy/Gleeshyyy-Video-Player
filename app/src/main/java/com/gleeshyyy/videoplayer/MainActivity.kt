@@ -336,6 +336,8 @@ class MainActivity : AppCompatActivity() {
                 row.addView(icon)
                 val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), 0, 0, 0) }
                 labels.addView(text(name, 15f, 0xFFF0F4F6.toInt(), true))
+                val parentPath = path.trimEnd('/').substringBeforeLast('/', "Internal storage").ifBlank { "Internal storage" }
+                labels.addView(text(parentPath, 11f, 0xFF8997A1.toInt()))
                 labels.addView(text("${videos.size} videos", 12f, 0xFF8997A1.toInt()))
                 row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
                 row.addView(text("›", 25f, 0xFF8997A1.toInt()))
