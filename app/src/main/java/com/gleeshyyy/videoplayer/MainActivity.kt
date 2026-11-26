@@ -428,5 +428,12 @@ class MainActivity : AppCompatActivity() {
         else String.format("%d:%02d", total / 60, total % 60)
     }
 
+    private fun formatFileSize(bytes: Long): String {
+        val mb = bytes / (1024.0 * 1024.0)
+        return if (mb >= 1024.0) String.format("%.1f GB", mb / 1024.0)
+        else if (mb >= 1.0) String.format("%.1f MB", mb)
+        else String.format("%.0f KB", bytes / 1024.0)
+    }
+
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 }
