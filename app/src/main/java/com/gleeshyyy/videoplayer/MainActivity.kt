@@ -259,6 +259,15 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { if (hasVideoPermission()) loadLibrary() else requestVideoPermission() }
         }
         header.addView(refresh)
+        val settings = TextView(this).apply {
+            text = "⚙"
+            textSize = 24f
+            setTextColor(0xFF20D66B.toInt())
+            setPadding(dp(12), dp(4), 0, dp(4))
+            contentDescription = "Settings"
+            setOnClickListener { startActivity(Intent(this@MainActivity, SettingsActivity::class.java)) }
+        }
+        header.addView(settings)
         content.addView(header)
 
         val searchBox = android.widget.EditText(this).apply {
