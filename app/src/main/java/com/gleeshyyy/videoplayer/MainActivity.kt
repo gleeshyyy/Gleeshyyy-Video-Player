@@ -2,6 +2,7 @@ package com.gleeshyyy.videoplayer
 
 import android.Manifest
 import android.content.Intent
+import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.database.Cursor
 import android.graphics.Bitmap
@@ -23,6 +24,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.IntentSenderRequest
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AlertDialog
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -73,6 +75,11 @@ class MainActivity : AppCompatActivity() {
     }
     private val thumbnailLoads = ConcurrentHashMap.newKeySet<String>()
     private val recentPrefs by lazy { getSharedPreferences("gleeshplayer_history", MODE_PRIVATE) }
+    private var pendingWriteAction: (() -> Unit)? = null
+    private val writePermissionRequest = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        if (result.resultCode == RESULT_OK) pendingWriteAction?.invoke()
+        pendingWriteAction = null
+    }
 
     private val permissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         if (hasVideoPermission()) {
