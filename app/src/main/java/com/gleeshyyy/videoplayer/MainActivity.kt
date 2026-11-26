@@ -477,7 +477,7 @@ class MainActivity : AppCompatActivity() {
                 searchQuery.isBlank() || it.title.contains(searchQuery, true)
             })
             content.addView(text("${videos.size} videos", 13f, palette.muted).apply { setPadding(0, dp(5), 0, dp(16)) })
-            videos.forEach { addVideoRow(it) }
+            videos.forEach { addVideoRow(it, videos) }
             return
         }
 
@@ -494,7 +494,7 @@ class MainActivity : AppCompatActivity() {
                     setPadding(0, dp(12), 0, dp(12))
                 })
             } else {
-                matches.forEach { addVideoRow(it) }
+                matches.forEach { addVideoRow(it, matches) }
             }
             return
         }
@@ -518,7 +518,7 @@ class MainActivity : AppCompatActivity() {
             val videos = sortVideos(allVideos.filter { searchQuery.isBlank() || it.title.contains(searchQuery, true) || it.folder.contains(searchQuery, true) })
             if (videos.isEmpty()) content.addView(text("No videos found.", 14f, palette.muted).apply { setPadding(0, dp(8), 0, dp(18)) })
             else {
-                videos.take(displayedVideoLimit).forEach { addVideoRow(it) }
+                videos.take(displayedVideoLimit).forEach { addVideoRow(it, videos) }
                 if (videos.size > displayedVideoLimit) {
                     val remaining = videos.size - displayedVideoLimit
                     content.addView(android.widget.Button(this).apply {
@@ -831,7 +831,7 @@ class MainActivity : AppCompatActivity() {
                 val card = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
                     setPadding(0, 0, dp(12), 0)
-                    setOnClickListener { openVideo(video) }
+                    setOnClickListener { openVideo(video, sortVideos(allVideos)) }
                 }
                 card.addView(thumbnail(video, dp(104), dp(62)))
                 card.addView(text(video.title, 12f, palette.text, true).apply {
@@ -850,13 +850,13 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    private fun addVideoRow(video: VideoItem) {
+    private fun addVideoRow(video: VideoItem, playlist: List<VideoItem> = sortVideos(allVideos)) {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(10), dp(9), dp(10), dp(9))
             setBackgroundColor(panelBackground())
-            setOnClickListener { openVideo(video) }
+            setOnClickListener { openVideo(video, playlist) }
         }
         row.addView(thumbnail(video, dp(104), dp(66)))
         val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, 0, 0) }
@@ -940,10 +940,15 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    private fun openVideo(video: VideoItem) {
+    private fun openVideo(video: VideoItem, playlist: List<VideoItem> = sortVideos(allVideos)) {
+        val ordered = playlist.ifEmpty { listOf(video) }
+        val safeIndex = ordered.indexOfFirst { it.uri == video.uri }.let { if (it < 0) 0 else it }
         startActivity(Intent(this, PlayerActivity::class.java).apply {
             data = video.uri
             putExtra("title", video.title)
+            putParcelableArrayListExtra("playlist_uris", ArrayList(ordered.map { it.uri }))
+            putStringArrayListExtra("playlist_titles", ArrayList(ordered.map { it.title }))
+            putIntExtra("playlist_index", safeIndex)
         })
     }
 
