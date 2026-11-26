@@ -15,8 +15,9 @@ import androidx.appcompat.app.AppCompatActivity
 
 class SettingsActivity : AppCompatActivity() {
     private val prefs by lazy { getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE) }
-    private val speeds = listOf(2f, 4f, 8f)
-    private val speedLabels = listOf("2×", "4×", "8×")
+    private val speeds = listOf(1f, 2f, 4f, 8f)
+    private val speedLabels = listOf("1×", "2×", "4×", "8×")
+    private val seekIntervals = listOf(3, 5, 10, 15, 20, 30, 60)
     private lateinit var root: LinearLayout
     private lateinit var body: LinearLayout
     private lateinit var settingsBackground: android.widget.ImageView
@@ -201,18 +202,75 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun showVideo() {
         beginPage("Video", true)
-        body.addView(label("PLAYBACK", 12f, palette.accent, true).apply { setPadding(0, dp(28), 0, dp(12)) })
-        body.addView(label("Long-press playback speed", 17f, palette.text, true))
-        body.addView(label("Select the temporary speed used while holding the video. The selected normal playback speed resumes when released.", 13f, palette.muted).apply { setPadding(0, dp(7), 0, dp(16)) })
-        speeds.forEachIndexed { index, speed ->
-            val active = prefs.getFloat("long_press_speed", 2f) == speed
-            val row = settingRow(speedLabels[index], if (active) "Selected ✓" else "Tap to select")
-            row.setOnClickListener {
-                prefs.edit().putFloat("long_press_speed", speed).apply()
-                showVideo()
-            }
-            body.addView(row)
+        body.addView(label("PLAYBACK", 12f, palette.accent, true).apply { setPadding(0, dp(24), 0, dp(12)) })
+        addToggle("Remember aspect", "Keep the last selected video fit mode (FIT, ZOOM or FILL).", "remember_aspect", true)
+        addToggle("Remember screen orientation", "Keep the last orientation selected in the player.", "remember_orientation", true)
+        addToggle("Long press vibration", "Vibrate briefly when long-press playback speed activates.", "long_press_vibration", true)
+        addChoice("Long press speed", "Temporary playback speed while holding the video.", "long_press_speed",
+            speedLabels, speeds.map { it.toString() }, prefs.getFloat("long_press_speed", 2f).toString(), "2×")
+        addChoice("Fast forward/rewind interval", "How far a double-tap skips forward or backward.", "seek_interval",
+            seekIntervals.map { "${it}s" }, seekIntervals.map { it.toString() }, prefs.getInt("seek_interval", 10).toString(), "10s")
+        addToggle("Auto miniplayer", "When enabled, pressing Home or switching to another app shrinks the video into Android's floating Picture-in-Picture mini player.", "auto_miniplayer", false)
+        addChoice("Resume", "Choose what GleeshPlayer does when a video has a saved playback position.", "resume_behavior",
+            listOf("Ask every time", "Always", "Never"), listOf("0", "1", "2"), prefs.getInt("resume_behavior", 0).toString(), "Ask every time")
+        addToggle("Remember brightness", "Keep the brightness level last set with the player's left-side swipe gesture.", "remember_brightness", true)
+    }
+
+    private fun addToggle(title: String, description: String, key: String, default: Boolean) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(15), dp(13), dp(12), dp(13))
+            setBackgroundColor(panelBackground())
         }
+        val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        labels.addView(label(title, 15f, palette.text, true))
+        labels.addView(label(description, 12f, palette.muted).apply { setPadding(0, dp(4), dp(8), 0) })
+        row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
+        val toggle = SwitchCompat(this).apply {
+            isChecked = prefs.getBoolean(key, default)
+            showText = false
+            splitTrack = false
+            thumbTintList = ColorStateList.valueOf(palette.text)
+            trackTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(palette.accent, 0xFF46515A.toInt()))
+            setOnCheckedChangeListener { _, checked -> prefs.edit().putBoolean(key, checked).apply() }
+        }
+        row.addView(toggle)
+        body.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
+    }
+
+    private fun addChoice(title: String, description: String, key: String, labels: List<String>,
+                          values: List<String>, selected: String, defaultLabel: String) {
+        val currentLabel = labels.getOrNull(values.indexOf(selected)) ?: defaultLabel
+        val row = settingRow(title, currentLabel + "  ›").apply {
+            setOnClickListener {
+                val index = values.indexOf(selected).coerceAtLeast(0)
+                val dialog = androidx.appcompat.app.AlertDialog.Builder(this@SettingsActivity)
+                    .setTitle(title)
+                    .setMessage(description)
+                    .setSingleChoiceItems(labels.toTypedArray(), index) { d, which ->
+                        val editor = prefs.edit()
+                        when (key) {
+                            "long_press_speed" -> editor.putFloat(key, values[which].toFloat())
+                            "seek_interval", "resume_behavior" -> editor.putInt(key, values[which].toInt())
+                            else -> editor.putString(key, values[which])
+                        }
+                        editor.apply()
+                        d.dismiss()
+                        showVideo()
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .create()
+                dialog.setOnShowListener {
+                    dialog.window?.setBackgroundDrawableResource(if (palette.isDark) android.R.color.background_dark else android.R.color.background_light)
+                    dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEGATIVE)?.setTextColor(palette.accent)
+                    dialog.findViewById<android.widget.TextView>(androidx.appcompat.R.id.alertTitle)?.setTextColor(palette.text)
+                    dialog.findViewById<android.widget.TextView>(android.R.id.message)?.setTextColor(palette.muted)
+                }
+                dialog.show()
+            }
+        }
+        body.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
     }
 
 
