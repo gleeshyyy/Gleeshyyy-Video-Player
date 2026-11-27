@@ -822,7 +822,7 @@ class PlayerActivity : AppCompatActivity() {
                     }
                     MotionEvent.ACTION_MOVE -> {
                         val start = view.tag as? FloatArray ?: return@setOnTouchListener false
-                        subtitlePositionPercent = (start[1] + (event.rawY - start[0]) / height * 100f).toInt().coerceIn(0, 85)
+                        subtitlePositionPercent = (start[1] - (event.rawY - start[0]) / height * 100f).toInt().coerceIn(0, 85)
                         applySubtitleStyle(subtitleSizeSp, subtitleColor, subtitlePositionPercent, true)
                         true
                     }
