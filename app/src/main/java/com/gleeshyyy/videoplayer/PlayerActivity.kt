@@ -1372,7 +1372,7 @@ class PlayerActivity : AppCompatActivity() {
             bottomControls.visibility = if (wasControlsVisible) View.VISIBLE else View.GONE
             playerHeader.visibility = if (wasPlayerHeaderVisible) View.VISIBLE else View.GONE
             portraitActionRow.visibility = if (wasPortraitActionsVisible) View.VISIBLE else View.GONE
-            if (isLandscapeNow() && (wasHeaderVisible || wasControlsVisible)) scheduleControlsHide()
+            if (wasHeaderVisible || wasControlsVisible || wasPlayerHeaderVisible) scheduleControlsHide()
         }
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
