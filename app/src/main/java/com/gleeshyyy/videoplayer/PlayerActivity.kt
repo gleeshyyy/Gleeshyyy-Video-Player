@@ -477,6 +477,22 @@ class PlayerActivity : AppCompatActivity() {
     private var gestureBrightness = 0.5f
     private var longPressSpeedActive = false
     private var longPressOriginalSpeed = 1.0f
+    private val globalLongPressHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var globalLongPressPending = false
+    private var globalLongPressTriggered = false
+    private var globalLongPressDownTime = 0L
+    private var globalLongPressDownX = 0f
+    private var globalLongPressDownY = 0f
+    private val globalLongPressRunnable = Runnable {
+        if (!globalLongPressPending || globalLongPressTriggered) return@Runnable
+        globalLongPressPending = false
+        globalLongPressTriggered = true
+        activateTemporaryLongPressSpeed()
+        val cancel = MotionEvent.obtain(globalLongPressDownTime, android.os.SystemClock.uptimeMillis(),
+            MotionEvent.ACTION_CANCEL, globalLongPressDownX, globalLongPressDownY, 0)
+        superDispatchCancel(cancel)
+        cancel.recycle()
+    }
     private var longPressSpeed = 2.0f
     private var seekIntervalMs = 10_000L
     private val pendingSeekHandler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -658,14 +674,6 @@ class PlayerActivity : AppCompatActivity() {
             }
 
             override fun onLongPress(e: MotionEvent) {
-                gestureLayer.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-                val settings = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
-                if (settings.getBoolean("long_press_vibration", true)) {
-                    try {
-                        if (android.os.Build.VERSION.SDK_INT >= 26) longPressVibrator?.vibrate(android.os.VibrationEffect.createOneShot(35, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
-                        else longPressVibrator?.vibrate(35)
-                    } catch (_: Exception) { }
-                }
                 activateTemporaryLongPressSpeed()
             }
         })
@@ -1818,6 +1826,73 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun dpPlayer(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
+    private fun activateTemporaryLongPressSpeed() {
+        val current = player ?: return
+        if (longPressSpeedActive) return
+        longPressOriginalSpeed = current.playbackParameters.speed
+        current.setPlaybackSpeed(longPressSpeed)
+        longPressSpeedActive = true
+        gestureLayer.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+        val settings = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+        if (settings.getBoolean("long_press_vibration", true)) {
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= 26) longPressVibrator?.vibrate(android.os.VibrationEffect.createOneShot(35, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                else longPressVibrator?.vibrate(35)
+            } catch (_: Exception) { }
+        }
+        showGestureFeedback("${longPressSpeed.toInt()}× playing…", 100, true)
+    }
+
+    private fun isTouchOutsidePlaybackArea(rawX: Float, rawY: Float): Boolean {
+        if (!::playbackArea.isInitialized) return false
+        val location = IntArray(2)
+        playbackArea.getLocationOnScreen(location)
+        return rawX < location[0] || rawX > location[0] + playbackArea.width ||
+            rawY < location[1] || rawY > location[1] + playbackArea.height
+    }
+
+    private fun superDispatchCancel(event: MotionEvent) {
+        super.dispatchTouchEvent(event)
+    }
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                globalLongPressHandler.removeCallbacks(globalLongPressRunnable)
+                globalLongPressPending = isTouchOutsidePlaybackArea(event.rawX, event.rawY)
+                globalLongPressTriggered = false
+                if (globalLongPressPending) {
+                    globalLongPressDownTime = event.downTime
+                    globalLongPressDownX = event.x
+                    globalLongPressDownY = event.y
+                    globalLongPressHandler.postDelayed(globalLongPressRunnable,
+                        android.view.ViewConfiguration.getLongPressTimeout().toLong())
+                }
+            }
+            MotionEvent.ACTION_MOVE -> if (globalLongPressPending) {
+                val slop = android.view.ViewConfiguration.get(this).scaledTouchSlop
+                if (kotlin.math.abs(event.x - globalLongPressDownX) > slop ||
+                    kotlin.math.abs(event.y - globalLongPressDownY) > slop) {
+                    globalLongPressPending = false
+                    globalLongPressHandler.removeCallbacks(globalLongPressRunnable)
+                }
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                globalLongPressHandler.removeCallbacks(globalLongPressRunnable)
+                globalLongPressPending = false
+                if (globalLongPressTriggered) {
+                    if (longPressSpeedActive) player?.setPlaybackSpeed(longPressOriginalSpeed)
+                    longPressSpeedActive = false
+                    globalLongPressTriggered = false
+                    hideGestureFeedbackSoon()
+                    return true
+                }
+            }
+        }
+        if (globalLongPressTriggered) return true
+        return super.dispatchTouchEvent(event)
+    }
+
     private fun handlePlaybackGesture(event: MotionEvent): Boolean {
         val width = gestureLayer.width.coerceAtLeast(1)
         val height = gestureLayer.height.coerceAtLeast(1)
@@ -2116,6 +2191,8 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         progressHandler.removeCallbacks(progressUpdater)
+        subtitleCueHandler.removeCallbacksAndMessages(null)
+        globalLongPressHandler.removeCallbacksAndMessages(null)
         controlsHandler.removeCallbacksAndMessages(null)
         if (::playerView.isInitialized) playerView.player = null
         player?.release()
