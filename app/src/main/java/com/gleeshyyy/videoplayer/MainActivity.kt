@@ -88,7 +88,7 @@ class MainActivity : AppCompatActivity() {
             selectionMode = false
             selectedVideoUris.clear()
             selectionScopeVideos = emptyList()
-            android.widget.Toast.makeText(this, "Deleted", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(this, LanguageManager.translate(this@MainActivity, "Deleted"), android.widget.Toast.LENGTH_SHORT).show()
         }
         loadLibrary()
     }
@@ -539,7 +539,7 @@ class MainActivity : AppCompatActivity() {
             val back = ImageView(this).apply {
                 setImageResource(android.R.drawable.ic_media_previous)
                 imageTintList = android.content.res.ColorStateList.valueOf(palette.accent)
-                contentDescription = "Back to folders"
+                contentDescription = LanguageManager.translate(this@MainActivity, "Back to folders")
                 setPadding(dp(10), dp(10), dp(10), dp(10))
                 setOnClickListener { searchPage = false; searchQuery = ""; selectedFolder = null; selectedTab = 0; renderHome() }
             }
@@ -612,7 +612,7 @@ class MainActivity : AppCompatActivity() {
         val searchIcon = ImageView(this).apply {
             setImageResource(android.R.drawable.ic_menu_search)
             imageTintList = android.content.res.ColorStateList.valueOf(palette.accent)
-            contentDescription = "Search"
+            contentDescription = LanguageManager.translate(this@MainActivity, "Search")
             setPadding(dp(12), dp(8), dp(12), dp(8))
             setOnClickListener { searchPage = true; selectedFolder = null; selectedTab = 0; renderHome() }
         }
@@ -620,7 +620,7 @@ class MainActivity : AppCompatActivity() {
         val settings = ImageView(this).apply {
             setImageResource(android.R.drawable.ic_menu_preferences)
             imageTintList = android.content.res.ColorStateList.valueOf(palette.accent)
-            contentDescription = "Settings"
+            contentDescription = LanguageManager.translate(this@MainActivity, "Settings")
             setPadding(dp(12), dp(8), dp(12), dp(8))
             setOnClickListener { startActivity(Intent(this@MainActivity, SettingsActivity::class.java)) }
         }
@@ -635,7 +635,7 @@ class MainActivity : AppCompatActivity() {
                 isClickable = true
                 isFocusable = true
                 setPadding(0, dp(8), dp(12), dp(8))
-                contentDescription = "Back to all folders"
+                contentDescription = LanguageManager.translate(this@MainActivity, "Back to all folders")
                 setOnClickListener { selectedFolder = null; renderHome() }
                 addView(ImageView(this@MainActivity).apply {
                     setImageResource(android.R.drawable.ic_media_previous)
@@ -687,7 +687,7 @@ class MainActivity : AppCompatActivity() {
             videoHeading.addView(ImageView(this).apply {
                 setImageResource(android.R.drawable.ic_menu_sort_by_size)
                 imageTintList = android.content.res.ColorStateList.valueOf(palette.accent)
-                contentDescription = "Sort videos"
+                contentDescription = LanguageManager.translate(this@MainActivity, "Sort videos")
                 setPadding(dp(12), dp(8), dp(5), dp(8))
                 setOnClickListener { showSortOptions() }
             }, LinearLayout.LayoutParams(dp(48), dp(44)))
@@ -699,7 +699,7 @@ class MainActivity : AppCompatActivity() {
                 if (videos.size > displayedVideoLimit) {
                     val remaining = videos.size - displayedVideoLimit
                     content.addView(android.widget.Button(this).apply {
-                        text = "Load more ($remaining remaining)"
+                        text = LanguageManager.translate(this@MainActivity, "Load more ($remaining remaining)")
                         isAllCaps = false
                         setOnClickListener {
                             displayedVideoLimit = (displayedVideoLimit + 40).coerceAtMost(videos.size)
@@ -724,7 +724,7 @@ class MainActivity : AppCompatActivity() {
         folderHeading.addView(ImageView(this).apply {
             setImageResource(android.R.drawable.ic_menu_sort_by_size)
             imageTintList = android.content.res.ColorStateList.valueOf(palette.accent)
-            contentDescription = "Sort folders and videos"
+            contentDescription = LanguageManager.translate(this@MainActivity, "Sort folders and videos")
             setPadding(dp(12), dp(8), dp(5), dp(8))
             setOnClickListener { showSortOptions() }
         }, LinearLayout.LayoutParams(dp(48), dp(44)))
@@ -761,11 +761,11 @@ class MainActivity : AppCompatActivity() {
                 labels.addView(text("${videos.size} videos", 11f, palette.muted))
                 row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
                 row.addView(TextView(this).apply {
-                    text = "⋮"
+                    text = LanguageManager.translate(this@MainActivity, "⋮")
                     textSize = 21f
                     gravity = Gravity.CENTER
                     setTextColor(palette.muted)
-                    contentDescription = "Folder options"
+                    contentDescription = LanguageManager.translate(this@MainActivity, "Folder options")
                     isClickable = true
                     isFocusable = true
                     minWidth = dp(40)
@@ -810,7 +810,7 @@ class MainActivity : AppCompatActivity() {
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         fun action(label: String, callback: () -> Unit) {
             actions.addView(TextView(this).apply {
-                text = label; textSize = 12f; gravity = Gravity.CENTER; setTextColor(palette.accent)
+                text = LanguageManager.translate(this@MainActivity, label); textSize = 12f; gravity = Gravity.CENTER; setTextColor(palette.accent)
                 setPadding(dp(5), dp(10), dp(5), dp(8)); isClickable = true; isFocusable = true; setOnClickListener { callback() }
             }, LinearLayout.LayoutParams(0, -2, 1f))
         }
@@ -863,7 +863,7 @@ class MainActivity : AppCompatActivity() {
         val name = videos.firstOrNull()?.folder ?: "Folder"
         val dialog = AlertDialog.Builder(this)
             .setTitle(name)
-            .setItems(arrayOf("Share", "Rename", "Properties", "Hide from Scan list", "Delete")) { _, which ->
+            .setItems(arrayOf("Share", "Rename", "Properties", "Hide from Scan list", "Delete").map { LanguageManager.translate(this@MainActivity, it) }.toTypedArray()) { _, which ->
                 when (which) {
                     0 -> shareVideos(videos)
                     1 -> promptRenameFolder(path, videos)
@@ -881,7 +881,7 @@ class MainActivity : AppCompatActivity() {
                     4 -> confirmDeleteVideos(videos, "Delete this folder and all its videos?")
                 }
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(LanguageManager.translate(this@MainActivity, "Cancel"), null)
             .create()
         showThemedOptionsDialog(dialog)
     }
@@ -889,7 +889,7 @@ class MainActivity : AppCompatActivity() {
     private fun showVideoOptions(video: VideoItem) {
         val dialog = AlertDialog.Builder(this)
             .setTitle(video.title)
-            .setItems(arrayOf("Share", "Rename", "Properties", "Delete")) { _, which ->
+            .setItems(arrayOf("Share", "Rename", "Properties", "Delete").map { LanguageManager.translate(this@MainActivity, it) }.toTypedArray()) { _, which ->
                 when (which) {
                     0 -> shareVideos(listOf(video))
                     1 -> promptRenameVideo(video)
@@ -897,7 +897,7 @@ class MainActivity : AppCompatActivity() {
                     3 -> confirmDeleteVideos(listOf(video), "Delete this video?")
                 }
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(LanguageManager.translate(this@MainActivity, "Cancel"), null)
             .create()
         showThemedOptionsDialog(dialog)
     }
@@ -905,17 +905,17 @@ class MainActivity : AppCompatActivity() {
     private fun confirmDeleteVideos(videos: List<VideoItem>, message: String) {
         if (videos.isEmpty()) return
         AlertDialog.Builder(this)
-            .setTitle("Delete")
-            .setMessage("$message This cannot be undone.")
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Delete") { _, _ ->
+            .setTitle(LanguageManager.translate(this@MainActivity, "Delete"))
+            .setMessage(LanguageManager.translate(this@MainActivity, "$message This cannot be undone."))
+            .setNegativeButton(LanguageManager.translate(this@MainActivity, "Cancel"), null)
+            .setPositiveButton(LanguageManager.translate(this@MainActivity, "Delete")) { _, _ ->
                 val uris = videos.map { it.uri }.distinct()
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     try {
                         val request = MediaStore.createDeleteRequest(contentResolver, uris)
                         deletePermissionRequest.launch(IntentSenderRequest.Builder(request.intentSender).build())
                     } catch (_: Exception) {
-                        android.widget.Toast.makeText(this, "Could not request delete permission", android.widget.Toast.LENGTH_LONG).show()
+                        android.widget.Toast.makeText(this, LanguageManager.translate(this@MainActivity, "Could not request delete permission"), android.widget.Toast.LENGTH_LONG).show()
                     }
                 } else {
                     try {
@@ -926,7 +926,7 @@ class MainActivity : AppCompatActivity() {
                         android.widget.Toast.makeText(this, "Deleted", android.widget.Toast.LENGTH_SHORT).show()
                         loadLibrary()
                     } catch (_: Exception) {
-                        android.widget.Toast.makeText(this, "Delete failed", android.widget.Toast.LENGTH_LONG).show()
+                        android.widget.Toast.makeText(this, LanguageManager.translate(this@MainActivity, "Delete failed"), android.widget.Toast.LENGTH_LONG).show()
                     }
                 }
             }.show()
@@ -942,9 +942,9 @@ class MainActivity : AppCompatActivity() {
             else putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
         }
         try {
-            startActivity(Intent.createChooser(intent, "Share video"))
+            startActivity(Intent.createChooser(intent, LanguageManager.translate(this@MainActivity, "Share video")))
         } catch (_: Exception) {
-            android.widget.Toast.makeText(this, "Unable to share these videos", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(this, LanguageManager.translate(this@MainActivity, "Unable to share these videos"), android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -955,9 +955,9 @@ class MainActivity : AppCompatActivity() {
             setSelection(text.length)
             setPadding(dp(20), dp(12), dp(20), dp(12))
         }
-        AlertDialog.Builder(this).setTitle("Rename video").setView(input)
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Rename") { _, _ ->
+        AlertDialog.Builder(this).setTitle(LanguageManager.translate(this@MainActivity, "Rename video")).setView(input)
+            .setNegativeButton(LanguageManager.translate(this@MainActivity, "Cancel"), null)
+            .setPositiveButton(LanguageManager.translate(this@MainActivity, "Rename")) { _, _ ->
                 var newName = input.text.toString().trim()
                 if (newName.isBlank()) return@setPositiveButton
                 if (!newName.contains('.') && video.title.contains('.')) newName += "." + video.title.substringAfterLast('.')
@@ -967,7 +967,7 @@ class MainActivity : AppCompatActivity() {
                         contentResolver.update(video.uri, values, null, null)
                         loadLibrary()
                     } catch (_: Exception) {
-                        android.widget.Toast.makeText(this, "Rename failed", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(this, LanguageManager.translate(this@MainActivity, "Rename failed"), android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
             }.show()
@@ -981,9 +981,9 @@ class MainActivity : AppCompatActivity() {
             setSelection(text.length)
             setPadding(dp(20), dp(12), dp(20), dp(12))
         }
-        AlertDialog.Builder(this).setTitle("Rename folder").setView(input)
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Rename") { _, _ ->
+        AlertDialog.Builder(this).setTitle(LanguageManager.translate(this@MainActivity, "Rename folder")).setView(input)
+            .setNegativeButton(LanguageManager.translate(this@MainActivity, "Cancel"), null)
+            .setPositiveButton(LanguageManager.translate(this@MainActivity, "Rename")) { _, _ ->
                 val newName = input.text.toString().trim().trim('/')
                 if (newName.isBlank() || newName == oldName) return@setPositiveButton
                 val parent = path.substringBeforeLast('/', "")
@@ -996,7 +996,7 @@ class MainActivity : AppCompatActivity() {
                         }
                         loadLibrary()
                     } catch (_: Exception) {
-                        android.widget.Toast.makeText(this, "Folder rename failed", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(this, LanguageManager.translate(this@MainActivity, "Folder rename failed"), android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
             }.show()
@@ -1011,7 +1011,7 @@ class MainActivity : AppCompatActivity() {
                 writePermissionRequest.launch(IntentSenderRequest.Builder(request.intentSender).build())
             } catch (_: Exception) {
                 pendingWriteAction = null
-                android.widget.Toast.makeText(this, "Could not request permission to edit this media", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(this, LanguageManager.translate(this@MainActivity, "Could not request permission to edit this media"), android.widget.Toast.LENGTH_SHORT).show()
             }
         } else {
             action()
@@ -1021,13 +1021,13 @@ class MainActivity : AppCompatActivity() {
     private fun showVideoProperties(video: VideoItem) {
         val resolution = if (video.width > 0 && video.height > 0) "${video.width} × ${video.height}" else "Unknown"
         val details = "Name: ${video.title}\nFolder: ${video.folderPath}\nDuration: ${formatDuration(video.duration)}\nResolution: $resolution\nSize: ${formatFileSize(video.sizeBytes)}"
-        AlertDialog.Builder(this).setTitle("Video properties").setMessage(details).setPositiveButton("OK", null).show()
+        AlertDialog.Builder(this).setTitle(LanguageManager.translate(this@MainActivity, "Video properties")).setMessage(details).setPositiveButton(LanguageManager.translate(this@MainActivity, "OK"), null).show()
     }
 
     private fun showFolderProperties(path: String, videos: List<VideoItem>) {
         val totalSize = videos.sumOf { it.sizeBytes }
         val details = "Folder: ${videos.firstOrNull()?.folder ?: "Folder"}\nPath: $path\nVideos: ${videos.size}\nTotal size: ${formatFileSize(totalSize)}"
-        AlertDialog.Builder(this).setTitle("Folder properties").setMessage(details).setPositiveButton("OK", null).show()
+        AlertDialog.Builder(this).setTitle(LanguageManager.translate(this@MainActivity, "Folder properties")).setMessage(details).setPositiveButton(LanguageManager.translate(this@MainActivity, "OK"), null).show()
     }
 
     private fun sortVideos(videos: List<VideoItem>): List<VideoItem> {
@@ -1047,7 +1047,7 @@ class MainActivity : AppCompatActivity() {
         val choices = android.widget.RadioGroup(this).apply { orientation = android.widget.RadioGroup.VERTICAL }
         sortLabels.forEachIndexed { index, label ->
             val option = android.widget.RadioButton(this).apply {
-                text = label
+                text = LanguageManager.translate(this@MainActivity, label)
                 textSize = 15f
                 setTextColor(palette.text)
                 buttonTintList = android.content.res.ColorStateList.valueOf(palette.accent)
@@ -1068,8 +1068,8 @@ class MainActivity : AppCompatActivity() {
         panel.addView(choices)
         panel.addView(text("Order", 13f, palette.muted, true).apply { setPadding(0, dp(12), 0, dp(6)) })
         val orderRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val ascending = android.widget.Button(this).apply { text = "Ascending"; isAllCaps = false }
-        val descending = android.widget.Button(this).apply { text = "Descending"; isAllCaps = false }
+        val ascending = android.widget.Button(this).apply { text = LanguageManager.translate(this@MainActivity, "Ascending"); isAllCaps = false }
+        val descending = android.widget.Button(this).apply { text = LanguageManager.translate(this@MainActivity, "Descending"); isAllCaps = false }
         fun updateOrderButtons() {
             val activeColor = android.content.res.ColorStateList.valueOf(palette.accent)
             val inactiveColor = android.content.res.ColorStateList.valueOf(palette.raised)
@@ -1099,7 +1099,7 @@ class MainActivity : AppCompatActivity() {
         val dialog = AlertDialog.Builder(this)
             .setCustomTitle(text("Sort videos", 20f, palette.text, true))
             .setView(panel)
-            .setNegativeButton("Close", null)
+            .setNegativeButton(LanguageManager.translate(this@MainActivity, "Close"), null)
             .create()
         dialog.setOnShowListener {
             dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(palette.background))
@@ -1178,7 +1178,7 @@ class MainActivity : AppCompatActivity() {
             subtitlePrefs.getBoolean("embedded_subtitles_" + video.uri.toString(), false)
         if (hasSavedSrt) {
             titleLine.addView(TextView(this).apply {
-                text = "SRT"
+                text = LanguageManager.translate(this@MainActivity, "SRT")
                 textSize = 8f
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
                 gravity = Gravity.CENTER
@@ -1188,7 +1188,7 @@ class MainActivity : AppCompatActivity() {
                     setColor(0xFF159447.toInt())
                     cornerRadius = dp(3).toFloat()
                 }
-                contentDescription = "Embedded or external subtitles available"
+                contentDescription = LanguageManager.translate(this@MainActivity, "Embedded or external subtitles available")
             }, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(5) })
         }
         labels.addView(titleLine)
@@ -1204,11 +1204,11 @@ class MainActivity : AppCompatActivity() {
         })
         row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
         row.addView(TextView(this).apply {
-            text = "⋮"
+            text = LanguageManager.translate(this@MainActivity, "⋮")
             textSize = 21f
             gravity = Gravity.CENTER
             setTextColor(palette.muted)
-            contentDescription = "Video options"
+            contentDescription = LanguageManager.translate(this@MainActivity, "Video options")
             isClickable = true
             isFocusable = true
             minWidth = dp(40)
