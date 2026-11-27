@@ -675,32 +675,37 @@ class MainActivity : AppCompatActivity() {
                 val row = LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
-                    setPadding(dp(11), dp(9), dp(11), dp(9))
+                    setPadding(dp(11), dp(9), dp(8), dp(9))
                     setBackgroundColor(panelBackground())
                     setOnClickListener { selectedFolder = path; renderHome() }
+                    setOnLongClickListener { showFolderOptions(path, videos); true }
                 }
                 val icon = text("▣", 25f, palette.accent, true)
                 row.addView(icon)
                 val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), 0, 0, 0) }
-                labels.addView(text(name, 14f, palette.text, true))
+                labels.addView(text(name, 14f, palette.text, true).apply {
+                    maxLines = 2
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                })
                 val parentPath = path.trimEnd('/').substringBeforeLast('/', "Internal storage").ifBlank { "Internal storage" }
-                labels.addView(text(parentPath, 10f, palette.muted))
+                labels.addView(text(parentPath, 10f, palette.muted).apply {
+                    maxLines = 1
+                    ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
+                })
                 labels.addView(text("${videos.size} videos", 11f, palette.muted))
                 row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
                 row.addView(TextView(this).apply {
-                    text = "⋮"
-                    textSize = 25f
+                    text = "›"
+                    textSize = 22f
                     gravity = Gravity.CENTER
                     setTextColor(palette.muted)
-                    contentDescription = "Folder options"
+                    contentDescription = "Folder options; long press for actions"
                     isClickable = true
                     isFocusable = true
-                    minWidth = dp(52)
-                    minHeight = dp(52)
-                    setPadding(dp(8), dp(8), dp(8), dp(8))
-                    setBackgroundResource(android.R.drawable.list_selector_background)
+                    minWidth = dp(24)
+                    minHeight = dp(40)
                     setOnClickListener { showFolderOptions(path, videos) }
-                }, LinearLayout.LayoutParams(dp(52), dp(52)))
+                }, LinearLayout.LayoutParams(dp(24), dp(44)))
                 val params = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) }
                 content.addView(row, params)
             }
@@ -1023,9 +1028,10 @@ class MainActivity : AppCompatActivity() {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(10), dp(9), dp(10), dp(9))
+            setPadding(dp(10), dp(9), dp(8), dp(9))
             setBackgroundColor(panelBackground())
             setOnClickListener { openVideo(video, playlist) }
+            setOnLongClickListener { showVideoOptions(video); true }
         }
         row.addView(thumbnail(video, dp(104), dp(66)))
         val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, 0, 0) }
@@ -1034,8 +1040,8 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
         }
         titleLine.addView(text(video.title, 14f, palette.text, true).apply {
-            maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
         }, LinearLayout.LayoutParams(0, -2, 1f))
         val hasSavedSrt = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
             .contains("external_subtitle_" + video.uri.toString())
@@ -1060,22 +1066,24 @@ class MainActivity : AppCompatActivity() {
         if (resolution != null) details.add(resolution)
         if (video.sizeBytes > 0L) details.add(formatFileSize(video.sizeBytes))
         details.add(video.folder)
-        labels.addView(text(details.joinToString("  •  "), 11f, palette.muted).apply { setPadding(0, dp(5), 0, 0) })
+        labels.addView(text(details.joinToString("  •  "), 11f, palette.muted).apply {
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setPadding(0, dp(5), 0, 0)
+        })
         row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
         row.addView(TextView(this).apply {
-            text = "⋮"
-            textSize = 25f
+            text = "›"
+            textSize = 22f
             gravity = Gravity.CENTER
             setTextColor(palette.muted)
-            contentDescription = "Video options"
+            contentDescription = "Video options; long press for actions"
             isClickable = true
             isFocusable = true
-            minWidth = dp(52)
-            minHeight = dp(52)
-            setPadding(dp(8), dp(8), dp(8), dp(8))
-            setBackgroundResource(android.R.drawable.list_selector_background)
+            minWidth = dp(24)
+            minHeight = dp(40)
             setOnClickListener { showVideoOptions(video) }
-        }, LinearLayout.LayoutParams(dp(52), dp(52)))
+        }, LinearLayout.LayoutParams(dp(24), dp(44)))
         target.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
     }
 
