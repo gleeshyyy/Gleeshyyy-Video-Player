@@ -1119,8 +1119,9 @@ class MainActivity : AppCompatActivity() {
             maxLines = 2
             ellipsize = android.text.TextUtils.TruncateAt.END
         }, LinearLayout.LayoutParams(0, -2, 1f))
-        val hasSavedSrt = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
-            .contains("external_subtitle_" + video.uri.toString())
+        val subtitlePrefs = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+        val hasSavedSrt = subtitlePrefs.contains("external_subtitle_" + video.uri.toString()) ||
+            subtitlePrefs.getBoolean("embedded_subtitles_" + video.uri.toString(), false)
         if (hasSavedSrt) {
             titleLine.addView(TextView(this).apply {
                 text = "SRT"
@@ -1133,7 +1134,7 @@ class MainActivity : AppCompatActivity() {
                     setColor(0xFF159447.toInt())
                     cornerRadius = dp(3).toFloat()
                 }
-                contentDescription = "External SRT subtitle saved"
+                contentDescription = "Embedded or external subtitles available"
             }, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(5) })
         }
         labels.addView(titleLine)
