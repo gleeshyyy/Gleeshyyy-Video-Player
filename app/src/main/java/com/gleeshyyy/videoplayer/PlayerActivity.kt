@@ -898,7 +898,7 @@ class PlayerActivity : AppCompatActivity() {
         audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         gestureBrightness = currentBrightness()
         setContentView(rootLayout)
-        playerView.subtitleView?.visibility = View.GONE
+        playerView.subtitleView?.visibility = View.VISIBLE
         window.statusBarColor = palette.background
         window.navigationBarColor = palette.background
         updateSystemBars()
@@ -926,16 +926,11 @@ class PlayerActivity : AppCompatActivity() {
                 .build()
             it.addListener(object : Player.Listener {
                 override fun onCues(cueGroup: CueGroup) {
-                    val line = cueGroup.cues.mapNotNull { cue -> cue.text?.toString()?.takeIf { value -> value.isNotBlank() } }
-                        .joinToString("\n")
+                    // Media3 PlayerView's SubtitleView renders embedded and external cues.
+                    // Keep the legacy custom overlay hidden to avoid duplicate captions.
                     pendingSubtitleCue?.let { captionLabel.removeCallbacks(it) }
-                    val update = Runnable {
-                        captionLabel.text = line
-                        captionLabel.visibility = if (line.isBlank()) View.GONE else View.VISIBLE
-                    }
-                    pendingSubtitleCue = update
-                    if (line.isBlank() || subtitleDelayMs <= 0L) update.run()
-                    else captionLabel.postDelayed(update, subtitleDelayMs)
+                    captionLabel.text = ""
+                    captionLabel.visibility = View.GONE
                 }
                 override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
                     playbackArea.post { autoSelectFirstEmbeddedSubtitle() }
@@ -1146,11 +1141,21 @@ class PlayerActivity : AppCompatActivity() {
     private fun subtitleRemembered(): Boolean = subtitlePrefs().getBoolean("remember_subtitles", true)
 
     private fun applySubtitleStyle(size: Float, color: Int, position: Int, save: Boolean) {
-        captionLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, size)
-        captionLabel.setTextColor(color)
-        playbackArea.post {
-            captionLabel.translationY = -(position.coerceIn(0, 100) / 100f) * playbackArea.height.toFloat()
+        // Apply subtitle preferences to Media3's native renderer, not the hidden legacy overlay.
+        playerView.subtitleView?.apply {
+            visibility = View.VISIBLE
+            setFixedTextSize(TypedValue.COMPLEX_UNIT_SP, size)
+            setStyle(CaptionStyleCompat(
+                color,
+                android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.TRANSPARENT,
+                CaptionStyleCompat.EDGE_TYPE_OUTLINE,
+                android.graphics.Color.BLACK,
+                Typeface.DEFAULT_BOLD
+            ))
+            setBottomPaddingFraction(position.coerceIn(0, 100) / 100f)
         }
+        captionLabel.visibility = View.GONE
         if (save && subtitleRemembered()) {
             subtitlePrefs().edit().putFloat("subtitle_size", size).putInt("subtitle_color", color)
                 .putInt("subtitle_position", position).apply()
