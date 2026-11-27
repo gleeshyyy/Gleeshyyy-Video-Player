@@ -186,10 +186,10 @@ class SettingsActivity : AppCompatActivity() {
                     .setSingleChoiceItems(languageNames.toTypedArray(), currentIndex) { dialog, which ->
                         val tag = languageTags[which]
                         prefs.edit().putString("app_language", tag).apply()
-                        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(tag))
+                        LanguageManager.apply(tag)
                         dialog.dismiss()
                     }
-                    .setNegativeButton("Cancel", null)
+                    .setNegativeButton(LanguageManager.translate(this@SettingsActivity, "Cancel"), null)
                     .show()
             }
         }
@@ -290,8 +290,8 @@ class SettingsActivity : AppCompatActivity() {
             setOnClickListener {
                 val index = values.indexOf(selected).coerceAtLeast(0)
                 val dialog = androidx.appcompat.app.AlertDialog.Builder(this@SettingsActivity)
-                    .setTitle(title)
-                    .setSingleChoiceItems(labels.toTypedArray(), index) { d, which ->
+                    .setTitle(LanguageManager.translate(this@SettingsActivity, title))
+                    .setSingleChoiceItems(labels.map { LanguageManager.translate(this@SettingsActivity, it) }.toTypedArray(), index) { d, which ->
                         val editor = prefs.edit()
                         when (key) {
                             "long_press_speed" -> editor.putFloat(key, values[which].toFloat())
