@@ -976,9 +976,27 @@ class PlayerActivity : AppCompatActivity() {
                 .build()
             it.addListener(object : Player.Listener {
                 override fun onCues(cueGroup: CueGroup) {
-                    // PlayerView forwards embedded and external cues to its native SubtitleView.
-                    captionLabel.text = ""
-                    captionLabel.visibility = View.GONE
+                    if (externalSubtitleUri == null) {
+                        // Embedded subtitles stay on Media3's native renderer and retain defaults.
+                        pendingSubtitleCue?.let { captionLabel.removeCallbacks(it) }
+                        captionLabel.text = ""
+                        captionLabel.visibility = View.GONE
+                        playerView.subtitleView?.visibility = View.VISIBLE
+                        return
+                    }
+                    // External SRT uses the draggable overlay, which sits above the gesture layer.
+                    playerView.subtitleView?.visibility = View.GONE
+                    val line = cueGroup.cues.mapNotNull { cue ->
+                        cue.text?.toString()?.takeIf { it.isNotBlank() }
+                    }.joinToString("\n")
+                    pendingSubtitleCue?.let { captionLabel.removeCallbacks(it) }
+                    val update = Runnable {
+                        captionLabel.text = line
+                        captionLabel.visibility = if (line.isBlank()) View.GONE else View.VISIBLE
+                    }
+                    pendingSubtitleCue = update
+                    if (line.isBlank() || subtitleDelayMs <= 0L) update.run()
+                    else captionLabel.postDelayed(update, subtitleDelayMs)
                 }
                 override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
                     if (tracks.groups.any { it.type == C.TRACK_TYPE_TEXT && it.length > 0 }) {
@@ -1061,6 +1079,7 @@ class PlayerActivity : AppCompatActivity() {
         subtitlePrefs().edit().putString(subtitleKey(videoUri), uri.toString()).apply()
         externalSubtitleUri = uri
         externalSubtitleName = displayName
+        applySubtitleStyle(subtitleSizeSp, subtitleColor, subtitlePositionPercent, false)
         if (::subtitleFileLabel.isInitialized) {
             subtitleFileLabel.text = "Loaded: $displayName"
             subtitleFileLabel.setTextColor(palette.accent)
@@ -1228,26 +1247,22 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun applySubtitleStyle(size: Float, color: Int, position: Int, save: Boolean) {
-        // Embedded subtitles deliberately retain Media3's default style and position.
-        // Player customization applies only to an attached external subtitle file.
-        if (externalSubtitleUri == null) return
+        // Embedded subtitles deliberately retain Media3's default renderer and position.
+        // External SRT uses the legacy overlay so its drag target stays above gestureLayer.
+        if (externalSubtitleUri == null) {
+            playerView.subtitleView?.visibility = View.VISIBLE
+            captionLabel.visibility = View.GONE
+            return
+        }
         subtitleSizeSp = size
         subtitleColor = color
         subtitlePositionPercent = position.coerceIn(0, 85)
-        playerView.subtitleView?.apply {
-            visibility = View.VISIBLE
-            setFixedTextSize(TypedValue.COMPLEX_UNIT_SP, size)
-            setStyle(CaptionStyleCompat(
-                color,
-                android.graphics.Color.TRANSPARENT,
-                android.graphics.Color.TRANSPARENT,
-                CaptionStyleCompat.EDGE_TYPE_OUTLINE,
-                android.graphics.Color.BLACK,
-                Typeface.DEFAULT_BOLD
-            ))
-            setBottomPaddingFraction(subtitlePositionPercent / 100f)
+        playerView.subtitleView?.visibility = View.GONE
+        captionLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, size)
+        captionLabel.setTextColor(color)
+        playbackArea.post {
+            captionLabel.translationY = -(subtitlePositionPercent / 100f) * playbackArea.height.toFloat()
         }
-        captionLabel.visibility = View.GONE
         if (save && subtitleRemembered()) {
             subtitlePrefs().edit().putFloat("subtitle_size", size).putInt("subtitle_color", color)
                 .putInt("subtitle_position", subtitlePositionPercent).apply()
