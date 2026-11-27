@@ -983,6 +983,17 @@ object LanguageManager {
         )
     )
 
+    private val dynamicWords: Map<String, Map<String, String>> = mapOf(
+        "fr" to mapOf("videos" to "vidéos", "matches" to "résultats", "Load more" to "Charger plus", "remaining" to "restants", "selected" to "sélectionnés", "Scanning your videos…" to "Analyse de vos vidéos…", "folders found" to "dossiers trouvés"),
+        "es" to mapOf("videos" to "vídeos", "matches" to "resultados", "Load more" to "Cargar más", "remaining" to "restantes", "selected" to "seleccionados", "Scanning your videos…" to "Analizando tus vídeos…", "folders found" to "carpetas encontradas"),
+        "sw" to mapOf("videos" to "video", "matches" to "matokeo", "Load more" to "Pakia zaidi", "remaining" to "zilizobaki", "selected" to "zilizochaguliwa", "Scanning your videos…" to "Inachanganua video zako…", "folders found" to "folda zimepatikana"),
+        "ru" to mapOf("videos" to "видео", "matches" to "совпадений", "Load more" to "Загрузить ещё", "remaining" to "осталось", "selected" to "выбрано", "Scanning your videos…" to "Сканирование ваших видео…", "folders found" to "папок найдено"),
+        "zh" to mapOf("videos" to "个视频", "matches" to "个匹配项", "Load more" to "加载更多", "remaining" to "剩余", "selected" to "已选择", "Scanning your videos…" to "正在扫描视频…", "folders found" to "个文件夹"),
+        "hi" to mapOf("videos" to "वीडियो", "matches" to "परिणाम", "Load more" to "और लोड करें", "remaining" to "बाकी", "selected" to "चयनित", "Scanning your videos…" to "आपके वीडियो स्कैन हो रहे हैं…", "folders found" to "फ़ोल्डर मिले"),
+        "te" to mapOf("videos" to "వీడియోలు", "matches" to "సరిపోలికలు", "Load more" to "మరిన్ని లోడ్ చేయి", "remaining" to "మిగిలినవి", "selected" to "ఎంచుకున్నవి", "Scanning your videos…" to "మీ వీడియోలను స్కాన్ చేస్తోంది…", "folders found" to "ఫోల్డర్లు కనుగొనబడ్డాయి"),
+        "ta" to mapOf("videos" to "வீடியோக்கள்", "matches" to "முடிவுகள்", "Load more" to "மேலும் ஏற்று", "remaining" to "மீதமுள்ளவை", "selected" to "தேர்ந்தெடுக்கப்பட்டவை", "Scanning your videos…" to "உங்கள் வீடியோக்கள் ஸ்கேன் செய்யப்படுகின்றன…", "folders found" to "கோப்புறைகள் கண்டறியப்பட்டன")
+    )
+
     fun currentTag(): String =
         AppCompatDelegate.getApplicationLocales().toLanguageTags().ifBlank { "en" }
 
@@ -990,18 +1001,27 @@ object LanguageManager {
         val language = currentTag().substringBefore('-').lowercase()
         val dictionary = dictionaries[language] ?: return source
         dictionary[source]?.let { return it }
+        val dynamic = dynamicWords[language] ?: emptyMap()
 
         val videoCount = Regex("^(\\d+) videos$").matchEntire(source)
-        if (videoCount != null) return videoCount.groupValues[1] + " " + (dictionary["videos"] ?: "videos")
+        if (videoCount != null) return videoCount.groupValues[1] + " " + (dynamic["videos"] ?: "videos")
         val matchCount = Regex("^(\\d+) matches$").matchEntire(source)
-        if (matchCount != null) return matchCount.groupValues[1] + " " + (dictionary["matches"] ?: "matches")
+        if (matchCount != null) return matchCount.groupValues[1] + " " + (dynamic["matches"] ?: "matches")
         val folderCount = Regex("^Folders · (\\d+)$").matchEntire(source)
         if (folderCount != null) return (dictionary["Folders"] ?: "Folders") + " · " + folderCount.groupValues[1]
         val allVideoCount = Regex("^All videos · (\\d+)$").matchEntire(source)
         if (allVideoCount != null) return (dictionary["All videos"] ?: "All videos") + " · " + allVideoCount.groupValues[1]
         val loadMore = Regex("^Load more \\((\\d+) remaining\\)$").matchEntire(source)
-        if (loadMore != null) return (dictionary["Load more"] ?: "Load more") + " (" + loadMore.groupValues[1] + " " + (dictionary["remaining"] ?: "remaining") + ")"
-        if (source == "Scanning your videos…") return dictionary["Scanning your videos…"] ?: source
+        if (loadMore != null) return (dynamic["Load more"] ?: "Load more") + " (" + loadMore.groupValues[1] + " " + (dynamic["remaining"] ?: "remaining") + ")"
+        if (source == "Scanning your videos…") return dynamic["Scanning your videos…"] ?: source
+        val selected = Regex("^(\\d+) selected  ·  (.+)$").matchEntire(source)
+        if (selected != null) return selected.groupValues[1] + " " + (dynamic["selected"] ?: "selected") + "  ·  " + selected.groupValues[2]
+        val folderCountPlain = Regex("^(\\d+) folders found$").matchEntire(source)
+        if (folderCountPlain != null) return folderCountPlain.groupValues[1] + " " + (dynamic["folders found"] ?: "folders found")
+        val deleteSelected = Regex("^Delete (\\d+) selected videos\\?$").matchEntire(source)
+        if (deleteSelected != null) return (dictionary["Delete"] ?: "Delete") + " " + deleteSelected.groupValues[1] + " " + (dynamic["selected"] ?: "selected") + " " + (dynamic["videos"] ?: "videos") + "?"
+        val searchEmpty = Regex("^No videos match “(.+)”\\.$").matchEntire(source)
+        if (searchEmpty != null) return (dictionary["No matching videos found."] ?: "No videos match") + " “" + searchEmpty.groupValues[1] + "”.
         return source
     }
 
