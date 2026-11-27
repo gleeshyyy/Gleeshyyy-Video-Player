@@ -78,6 +78,9 @@ class MainActivity : AppCompatActivity() {
     private val thumbnailLoads = ConcurrentHashMap.newKeySet<String>()
     private val recentPrefs by lazy { getSharedPreferences("gleeshplayer_history", MODE_PRIVATE) }
     private var pendingWriteAction: (() -> Unit)? = null
+    private var selectionMode = false
+    private val selectedVideoUris = linkedSetOf<String>()
+    private var selectionScopeVideos: List<VideoItem> = emptyList()
     private val deletePermissionRequest = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
             android.widget.Toast.makeText(this, "Deleted", android.widget.Toast.LENGTH_SHORT).show()
@@ -502,6 +505,7 @@ class MainActivity : AppCompatActivity() {
             }
             searchHeader.addView(searchInput, LinearLayout.LayoutParams(0, dp(48), 1f))
             content.addView(searchHeader, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+            if (selectionMode) addSelectionToolbar()
             val results = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
             content.addView(results, LinearLayout.LayoutParams(-1, -2))
             fun updateResults(query: String) {
@@ -565,6 +569,7 @@ class MainActivity : AppCompatActivity() {
         }
         header.addView(settings, LinearLayout.LayoutParams(dp(48), dp(48)))
         content.addView(header)
+        if (selectionMode) addSelectionToolbar()
 
         if (folder != null) {
             val back = LinearLayout(this).apply {
@@ -676,9 +681,13 @@ class MainActivity : AppCompatActivity() {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(dp(11), dp(9), dp(8), dp(9))
-                    setBackgroundColor(panelBackground())
-                    setOnClickListener { selectedFolder = path; renderHome() }
-                    setOnLongClickListener { showFolderOptions(path, videos); true }
+                    setBackgroundColor(if (selectionMode && videos.all { it.uri.toString() in selectedVideoUris }) selectionHighlight() else panelBackground())
+                    setOnClickListener { if (selectionMode) toggleFolderSelection(path, videos) else { selectedFolder = path; renderHome() } }
+                    setOnLongClickListener {
+                        if (!selectionMode) { selectionScopeVideos = allVideos.distinctBy { it.uri }; selectionMode = true }
+                        toggleFolderSelection(path, videos)
+                        true
+                    }
                 }
                 val icon = text("▣", 25f, palette.accent, true)
                 row.addView(icon)
@@ -695,17 +704,17 @@ class MainActivity : AppCompatActivity() {
                 labels.addView(text("${videos.size} videos", 11f, palette.muted))
                 row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
                 row.addView(TextView(this).apply {
-                    text = "›"
-                    textSize = 22f
+                    text = "⋮"
+                    textSize = 21f
                     gravity = Gravity.CENTER
                     setTextColor(palette.muted)
-                    contentDescription = "Folder options; long press for actions"
+                    contentDescription = "Folder options"
                     isClickable = true
                     isFocusable = true
-                    minWidth = dp(24)
-                    minHeight = dp(40)
+                    minWidth = dp(40)
+                    minHeight = dp(44)
                     setOnClickListener { showFolderOptions(path, videos) }
-                }, LinearLayout.LayoutParams(dp(24), dp(44)))
+                }, LinearLayout.LayoutParams(dp(40), dp(44)))
                 val params = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) }
                 content.addView(row, params)
             }
@@ -713,6 +722,63 @@ class MainActivity : AppCompatActivity() {
 
     }
 
+
+    private fun selectionHighlight(): Int = if (palette.isDark) 0x5530D878 else 0x4430A85F
+
+    private fun toggleVideoSelection(video: VideoItem, scope: List<VideoItem>) {
+        if (selectionScopeVideos.isEmpty()) selectionScopeVideos = scope.distinctBy { it.uri }
+        val key = video.uri.toString()
+        if (!selectedVideoUris.add(key)) selectedVideoUris.remove(key)
+        if (selectedVideoUris.isEmpty()) { selectionMode = false; selectionScopeVideos = emptyList() }
+        renderHome()
+    }
+
+    private fun toggleFolderSelection(path: String, videos: List<VideoItem>) {
+        val keys = videos.map { it.uri.toString() }
+        if (keys.all { it in selectedVideoUris }) selectedVideoUris.removeAll(keys.toSet()) else selectedVideoUris.addAll(keys)
+        if (selectedVideoUris.isEmpty()) { selectionMode = false; selectionScopeVideos = emptyList() }
+        renderHome()
+    }
+
+    private fun addSelectionToolbar() {
+        val selected = allVideos.filter { it.uri.toString() in selectedVideoUris }
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(palette.surface); cornerRadius = dp(12).toFloat(); setStroke(dp(1), selectionHighlight())
+            }
+        }
+        bar.addView(text("${selected.size} selected  ·  ${formatFileSize(selected.sumOf { it.sizeBytes })}", 14f, palette.text, true))
+        val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        fun action(label: String, callback: () -> Unit) {
+            actions.addView(TextView(this).apply {
+                text = label; textSize = 12f; gravity = Gravity.CENTER; setTextColor(palette.accent)
+                setPadding(dp(5), dp(10), dp(5), dp(8)); isClickable = true; isFocusable = true; setOnClickListener { callback() }
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+        }
+        action("Select All") {
+            selectedVideoUris.addAll((selectionScopeVideos.ifEmpty { allVideos }).map { it.uri.toString() })
+            renderHome()
+        }
+        action("Invert") {
+            (selectionScopeVideos.ifEmpty { allVideos }).forEach { item ->
+                val key = item.uri.toString()
+                if (!selectedVideoUris.add(key)) selectedVideoUris.remove(key)
+            }
+            if (selectedVideoUris.isEmpty()) { selectionMode = false; selectionScopeVideos = emptyList() }
+            renderHome()
+        }
+        action("Delete") {
+            val chosen = allVideos.filter { it.uri.toString() in selectedVideoUris }
+            if (chosen.isNotEmpty()) confirmDeleteVideos(chosen, "Delete ${chosen.size} selected videos?")
+        }
+        action("Cancel") {
+            selectionMode = false; selectedVideoUris.clear(); selectionScopeVideos = emptyList(); renderHome()
+        }
+        bar.addView(actions)
+        content.addView(bar, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+    }
 
     private fun showThemedOptionsDialog(dialog: AlertDialog) {
         dialog.setOnShowListener {
@@ -1029,9 +1095,13 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(10), dp(9), dp(8), dp(9))
-            setBackgroundColor(panelBackground())
-            setOnClickListener { openVideo(video, playlist) }
-            setOnLongClickListener { showVideoOptions(video); true }
+            setBackgroundColor(if (selectionMode && video.uri.toString() in selectedVideoUris) selectionHighlight() else panelBackground())
+            setOnClickListener { if (selectionMode) toggleVideoSelection(video, playlist) else openVideo(video, playlist) }
+            setOnLongClickListener {
+                if (!selectionMode) { selectionScopeVideos = playlist.distinctBy { it.uri }; selectionMode = true }
+                toggleVideoSelection(video, playlist)
+                true
+            }
         }
         row.addView(thumbnail(video, dp(104), dp(66)))
         val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, 0, 0) }
@@ -1073,17 +1143,17 @@ class MainActivity : AppCompatActivity() {
         })
         row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
         row.addView(TextView(this).apply {
-            text = "›"
-            textSize = 22f
+            text = "⋮"
+            textSize = 21f
             gravity = Gravity.CENTER
             setTextColor(palette.muted)
-            contentDescription = "Video options; long press for actions"
+            contentDescription = "Video options"
             isClickable = true
             isFocusable = true
-            minWidth = dp(24)
-            minHeight = dp(40)
+            minWidth = dp(40)
+            minHeight = dp(44)
             setOnClickListener { showVideoOptions(video) }
-        }, LinearLayout.LayoutParams(dp(24), dp(44)))
+        }, LinearLayout.LayoutParams(dp(40), dp(44)))
         target.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
     }
 
