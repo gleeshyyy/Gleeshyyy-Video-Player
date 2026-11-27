@@ -1832,7 +1832,7 @@ class PlayerActivity : AppCompatActivity() {
                 else longPressVibrator?.vibrate(35)
             } catch (_: Exception) { }
         }
-        showGestureFeedback("${longPressSpeed.toInt()}× playing…", 100, true)
+        showGestureFeedback("${longPressSpeed.toInt()}× " + LanguageManager.translate(this@PlayerActivity, "playing…"), 100, true)
     }
 
     private fun isTouchOutsidePlaybackArea(rawX: Float, rawY: Float): Boolean {
@@ -1928,7 +1928,7 @@ class PlayerActivity : AppCompatActivity() {
                         if (duration > 0L) {
                             scrubPreviewPosition = (scrubStartPosition + ((event.x - gestureStartX) * 55f).toLong())
                                 .coerceIn(0L, duration)
-                            showGestureFeedback("SEEK  ${formatGestureTime(scrubPreviewPosition)} / ${formatGestureTime(duration)}",
+                            showGestureFeedback(LanguageManager.translate(this@PlayerActivity, "SEEK") + "  ${formatGestureTime(scrubPreviewPosition)} / ${formatGestureTime(duration)}",
                                 if (duration > 0) (scrubPreviewPosition * 100 / duration).toInt() else 0, true)
                         }
                     }
@@ -1937,7 +1937,7 @@ class PlayerActivity : AppCompatActivity() {
                         window.attributes = window.attributes.apply { screenBrightness = gestureBrightness }
                         val prefs = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
                         if (prefs.getBoolean("remember_brightness", true)) prefs.edit().putFloat("last_brightness", gestureBrightness).apply()
-                        showGestureFeedback("BRIGHTNESS  ${(gestureBrightness * 100).toInt()}%", (gestureBrightness * 100).toInt(), true)
+                        showGestureFeedback(LanguageManager.translate(this@PlayerActivity, "BRIGHTNESS") + "  ${(gestureBrightness * 100).toInt()}%", (gestureBrightness * 100).toInt(), true)
                     }
                     3 -> {
                         val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
@@ -1947,7 +1947,7 @@ class PlayerActivity : AppCompatActivity() {
                             (gestureVolume * max).toInt().coerceIn(0, max),
                             0
                         )
-                        showGestureFeedback("VOLUME  ${(gestureVolume * 100).toInt()}%", (gestureVolume * 100).toInt(), true)
+                        showGestureFeedback(LanguageManager.translate(this@PlayerActivity, "VOLUME") + "  ${(gestureVolume * 100).toInt()}%", (gestureVolume * 100).toInt(), true)
                     }
                 }
                 lastGestureX = event.x
