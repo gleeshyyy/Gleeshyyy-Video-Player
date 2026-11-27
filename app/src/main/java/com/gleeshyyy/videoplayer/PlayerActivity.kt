@@ -494,13 +494,19 @@ class PlayerActivity : AppCompatActivity() {
     private var globalLongPressDownTime = 0L
     private var globalLongPressDownX = 0f
     private var globalLongPressDownY = 0f
+    private var globalLongPressDownRawX = 0f
+    private var globalLongPressDownRawY = 0f
     private val globalLongPressRunnable = Runnable {
         if (!globalLongPressPending || globalLongPressTriggered) return@Runnable
         globalLongPressPending = false
         globalLongPressTriggered = true
         activateTemporaryLongPressSpeed()
+        val decorLocation = IntArray(2)
+        window.decorView.getLocationOnScreen(decorLocation)
         val cancel = MotionEvent.obtain(globalLongPressDownTime, android.os.SystemClock.uptimeMillis(),
-            MotionEvent.ACTION_CANCEL, globalLongPressDownX, globalLongPressDownY, 0)
+            MotionEvent.ACTION_CANCEL,
+            globalLongPressDownRawX - decorLocation[0],
+            globalLongPressDownRawY - decorLocation[1], 0)
         superDispatchCancel(cancel)
         cancel.recycle()
     }
@@ -1230,12 +1236,10 @@ class PlayerActivity : AppCompatActivity() {
     private fun subtitleRemembered(): Boolean = subtitlePrefs().getBoolean("remember_subtitles", true)
 
     private fun loadRememberedSubtitleColor(): Int {
-        val prefs = subtitlePrefs()
-        val stored = if (prefs.contains("subtitle_color")) prefs.getInt("subtitle_color", 0xFFD0D0D0.toInt()) else 0xFFD0D0D0.toInt()
-        // Previous builds wrote white as an implicit default; migrate it to soft gray.
-        val resolved = if (stored == android.graphics.Color.WHITE) 0xFFD0D0D0.toInt() else stored
-        if (subtitleRemembered() && resolved != stored) prefs.edit().putInt("subtitle_color", resolved).apply()
-        return resolved
+        // External subtitles use one fixed, softer gray; color is not user-selectable.
+        val softGray = 0xFFD0D0D0.toInt()
+        if (subtitleRemembered()) subtitlePrefs().edit().putInt("subtitle_color", softGray).apply()
+        return softGray
     }
 
     private fun loadExternalSubtitleCues(uri: Uri) {
@@ -1494,29 +1498,6 @@ class PlayerActivity : AppCompatActivity() {
                 override fun onStopTrackingTouch(bar: SeekBar?) {}
             })
         })
-
-        sectionLabel("SUBTITLE COLOR")
-        rowAction("Text color", when (currentColor) {
-            0xFFD0D0D0.toInt() -> "Soft gray"
-            android.graphics.Color.WHITE -> "White"
-            0xFFFFE082.toInt() -> "Warm yellow"
-            0xFFB3E5FC.toInt() -> "Light cyan"
-            else -> "Custom"
-        }) {
-            val names = arrayOf("Soft gray", "White", "Warm yellow", "Light cyan")
-            val colors = intArrayOf(0xFFD0D0D0.toInt(), android.graphics.Color.WHITE, 0xFFFFE082.toInt(), 0xFFB3E5FC.toInt())
-            AlertDialog.Builder(this).setTitle("Subtitle color")
-                .setSingleChoiceItems(names, colors.indexOf(currentColor).coerceAtLeast(0)) { dialog, which ->
-                    currentColor = colors[which]
-                    subtitleColor = currentColor
-                    applySubtitleStyle(currentSize, currentColor, currentPosition, true)
-                    dialog.dismiss()
-                    playbackArea.findViewWithTag<View>("subtitle_settings_panel")?.let { view ->
-                        (view.parent as? android.view.ViewGroup)?.removeView(view)
-                    }
-                    showSubtitleCustomization()
-                }.setNegativeButton("Cancel", null).show()
-        }
 
         sectionLabel("SUBTITLE DELAY")
         rowAction("Subtitle delay", String.format(java.util.Locale.US, "%+.1fs", subtitleDelayMs / 1000f)) {
@@ -1882,6 +1863,8 @@ class PlayerActivity : AppCompatActivity() {
                     globalLongPressDownTime = event.downTime
                     globalLongPressDownX = event.x
                     globalLongPressDownY = event.y
+                    globalLongPressDownRawX = event.rawX
+                    globalLongPressDownRawY = event.rawY
                     globalLongPressHandler.postDelayed(globalLongPressRunnable,
                         android.view.ViewConfiguration.getLongPressTimeout().toLong())
                 }
@@ -1893,8 +1876,8 @@ class PlayerActivity : AppCompatActivity() {
                 }
                 if (globalLongPressPending) {
                     val slop = android.view.ViewConfiguration.get(this).scaledTouchSlop
-                    if (kotlin.math.abs(event.x - globalLongPressDownX) > slop ||
-                        kotlin.math.abs(event.y - globalLongPressDownY) > slop) {
+                    if (kotlin.math.abs(event.rawX - globalLongPressDownRawX) > slop ||
+                        kotlin.math.abs(event.rawY - globalLongPressDownRawY) > slop) {
                         globalLongPressPending = false
                         globalLongPressHandler.removeCallbacks(globalLongPressRunnable)
                     }
