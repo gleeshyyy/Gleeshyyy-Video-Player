@@ -1005,6 +1005,17 @@ object LanguageManager {
         "ta" to mapOf("Name" to "பெயர்", "Path" to "பாதை", "Duration" to "கால அளவு", "Resolution" to "தெளிவுத்திறன்", "Size" to "அளவு", "Videos" to "வீடியோக்கள்", "Total size" to "மொத்த அளவு", "Could not request delete permission" to "நீக்க அனுமதி கோர முடியவில்லை", "Could not request permission to edit this media" to "இந்த மீடியாவைத் திருத்த அனுமதி கோர முடியவில்லை")
     )
 
+    private val subtitleWords: Map<String, Map<String, String>> = mapOf(
+        "fr" to mapOf("Subtitle" to "Sous-titre", "SUBTITLES" to "SOUS-TITRES", "unsupported" to "non pris en charge", "Loaded" to "Chargé :", "Subtitle loaded:" to "Sous-titre chargé :", "This file provider does not allow saved subtitle access; it may not remain available after closing." to "Ce fournisseur de fichiers n’autorise pas l’accès persistant aux sous-titres ; le fichier peut ne plus être disponible après fermeture.", "This subtitle format is not supported on this device." to "Ce format de sous-titres n’est pas pris en charge sur cet appareil."),
+        "es" to mapOf("Subtitle" to "Subtítulo", "SUBTITLES" to "SUBTÍTULOS", "unsupported" to "no compatible", "Loaded" to "Cargado:", "Subtitle loaded:" to "Subtítulo cargado:", "This file provider does not allow saved subtitle access; it may not remain available after closing." to "Este proveedor no permite guardar el acceso al subtítulo; puede no estar disponible al cerrar.", "This subtitle format is not supported on this device." to "Este formato de subtítulos no es compatible con este dispositivo."),
+        "sw" to mapOf("Subtitle" to "Manukuu", "SUBTITLES" to "MANUKUU", "unsupported" to "haitumiki", "Loaded" to "Imepakiwa:", "Subtitle loaded:" to "Manukuu yamepakiwa:", "This file provider does not allow saved subtitle access; it may not remain available after closing." to "Mtoa faili huyu haruhusu ufikiaji wa kudumu wa manukuu; huenda yasipatikane baada ya kufunga.", "This subtitle format is not supported on this device." to "Muundo huu wa manukuu hautumiki kwenye kifaa hiki."),
+        "ru" to mapOf("Subtitle" to "Субтитры", "SUBTITLES" to "СУБТИТРЫ", "unsupported" to "не поддерживается", "Loaded" to "Загружено:", "Subtitle loaded:" to "Субтитры загружены:", "This file provider does not allow saved subtitle access; it may not remain available after closing." to "Этот поставщик файлов не разрешает постоянный доступ к субтитрам; после закрытия файл может быть недоступен.", "This subtitle format is not supported on this device." to "Этот формат субтитров не поддерживается на устройстве."),
+        "zh" to mapOf("Subtitle" to "字幕", "SUBTITLES" to "字幕", "unsupported" to "不支持", "Loaded" to "已加载：", "Subtitle loaded:" to "字幕已加载：", "This file provider does not allow saved subtitle access; it may not remain available after closing." to "此文件提供程序不允许保存字幕访问权限；关闭后可能无法继续使用。", "This subtitle format is not supported on this device." to "此设备不支持此字幕格式。"),
+        "hi" to mapOf("Subtitle" to "उपशीर्षक", "SUBTITLES" to "उपशीर्षक", "unsupported" to "असमर्थित", "Loaded" to "लोड हुआ:", "Subtitle loaded:" to "उपशीर्षक लोड हुआ:", "This file provider does not allow saved subtitle access; it may not remain available after closing." to "यह फ़ाइल प्रदाता सहेजी गई उपशीर्षक पहुँच की अनुमति नहीं देता; बंद करने के बाद यह उपलब्ध नहीं हो सकता।", "This subtitle format is not supported on this device." to "यह उपशीर्षक प्रारूप इस डिवाइस पर समर्थित नहीं है।"),
+        "te" to mapOf("Subtitle" to "ఉపశీర్షిక", "SUBTITLES" to "ఉపశీర్షికలు", "unsupported" to "మద్దతు లేదు", "Loaded" to "లోడ్ అయింది:", "Subtitle loaded:" to "ఉపశీర్షిక లోడ్ అయింది:", "This file provider does not allow saved subtitle access; it may not remain available after closing." to "ఈ ఫైల్ ప్రొవైడర్ సేవ్ చేసిన ఉపశీర్షిక యాక్సెస్‌ను అనుమతించదు; మూసిన తర్వాత అందుబాటులో ఉండకపోవచ్చు.", "This subtitle format is not supported on this device." to "ఈ పరికరంలో ఈ ఉపశీర్షిక ఫార్మాట్‌కు మద్దతు లేదు."),
+        "ta" to mapOf("Subtitle" to "வசனம்", "SUBTITLES" to "வசனங்கள்", "unsupported" to "ஆதரிக்கப்படவில்லை", "Loaded" to "ஏற்றப்பட்டது:", "Subtitle loaded:" to "வசனம் ஏற்றப்பட்டது:", "This file provider does not allow saved subtitle access; it may not remain available after closing." to "இந்த கோப்பு வழங்குநர் வசன அணுகலைச் சேமிக்க அனுமதிக்காது; மூடிய பிறகு அது கிடைக்காமல் போகலாம்.", "This subtitle format is not supported on this device." to "இந்த சாதனத்தில் இந்த வசன வடிவம் ஆதரிக்கப்படவில்லை.")
+    )
+
     fun currentTag(): String =
         AppCompatDelegate.getApplicationLocales().toLanguageTags().ifBlank { "en" }
 
@@ -1013,8 +1024,11 @@ object LanguageManager {
         val dictionary = dictionaries[language] ?: return source
         dictionary[source]?.let { return it }
         propertyWords[language]?.get(source)?.let { return it }
+        subtitleWords[language]?.get(source)?.let { return it }
         val dynamic = dynamicWords[language] ?: emptyMap()
 
+        val subtitleNumber = Regex("^Subtitle (\\d+)$").matchEntire(source)
+        if (subtitleNumber != null) return (subtitleWords[language]?.get("Subtitle") ?: "Subtitle") + " " + subtitleNumber.groupValues[1]
         val videoCount = Regex("^(\\d+) videos$").matchEntire(source)
         if (videoCount != null) return videoCount.groupValues[1] + " " + (dynamic["videos"] ?: "videos")
         val matchCount = Regex("^(\\d+) matches$").matchEntire(source)
