@@ -50,6 +50,7 @@ class PlayerActivity : AppCompatActivity() {
     }
     private var externalSubtitleName: String? = null
     private var subtitleDelayMs = 0L
+    private var autoEmbeddedSubtitleApplied = false
     private var pendingSubtitleCue: Runnable? = null
     private fun subtitleKey(uri: Uri) = "external_subtitle_" + uri.toString()
     private fun savedSubtitleUri(uri: Uri): Uri? = subtitlePrefs().getString(subtitleKey(uri), null)?.let { runCatching { Uri.parse(it) }.getOrNull() }
@@ -936,6 +937,9 @@ class PlayerActivity : AppCompatActivity() {
                     if (line.isBlank() || subtitleDelayMs <= 0L) update.run()
                     else captionLabel.postDelayed(update, subtitleDelayMs)
                 }
+                override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+                    playbackArea.post { autoSelectFirstEmbeddedSubtitle() }
+                }
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     playPauseButton.text = if (isPlaying) "Ⅱ" else "▶"
                 }
@@ -948,6 +952,7 @@ class PlayerActivity : AppCompatActivity() {
                     if (::orientationIcon.isInitialized) orientationIcon.setLandscape(videoIsLandscape)
                 }
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    autoEmbeddedSubtitleApplied = false
                     val activeUri = mediaItem?.localConfiguration?.uri ?: return
                     videoKey = activeUri.toString()
                     playlistIndex = playlistUris.indexOf(activeUri).takeIf { it >= 0 } ?: playlistIndex
@@ -1073,6 +1078,30 @@ class PlayerActivity : AppCompatActivity() {
         return label ?: language ?: "Subtitle ${index + 1}"
     }
 
+    private fun applyEmbeddedSubtitleSelection(trackGroup: androidx.media3.common.TrackGroup, trackIndex: Int) {
+        val currentPlayer = player ?: return
+        currentPlayer.trackSelectionParameters = currentPlayer.trackSelectionParameters.buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+            .addOverride(androidx.media3.common.TrackSelectionOverride(trackGroup, listOf(trackIndex)))
+            .build()
+    }
+
+    private fun autoSelectFirstEmbeddedSubtitle() {
+        val currentPlayer = player ?: return
+        if (autoEmbeddedSubtitleApplied || externalSubtitleUri != null) return
+        val textGroups = currentPlayer.currentTracks.groups.filter { it.type == C.TRACK_TYPE_TEXT }
+        if (textGroups.isEmpty()) return
+        autoEmbeddedSubtitleApplied = true
+        for (group in textGroups) {
+            val firstSupported = (0 until group.length).firstOrNull { group.isTrackSupported(it) }
+            if (firstSupported != null) {
+                applyEmbeddedSubtitleSelection(group.mediaTrackGroup, firstSupported)
+                return
+            }
+        }
+    }
+
     private fun showEmbeddedSubtitleTracks() {
         val currentPlayer = player ?: return
         val choices = mutableListOf("Off")
@@ -1097,19 +1126,18 @@ class PlayerActivity : AppCompatActivity() {
         }
         AlertDialog.Builder(this).setTitle("Embedded subtitles")
             .setItems(choices.toTypedArray()) { _, which ->
-                val builder = currentPlayer.trackSelectionParameters.buildUpon()
-                    .clearOverridesOfType(C.TRACK_TYPE_TEXT)
-                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
                 if (which == 0) {
-                    builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                    currentPlayer.trackSelectionParameters = currentPlayer.trackSelectionParameters.buildUpon()
+                        .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                        .build()
                 } else if (!supported.getOrElse(which) { false }) {
                     android.widget.Toast.makeText(this, "This subtitle format is not supported on this device.", android.widget.Toast.LENGTH_SHORT).show()
                     return@setItems
                 } else {
                     val selected = selections.getOrNull(which) ?: return@setItems
-                    builder.addOverride(androidx.media3.common.TrackSelectionOverride(selected.first, listOf(selected.second)))
+                    applyEmbeddedSubtitleSelection(selected.first, selected.second)
                 }
-                currentPlayer.trackSelectionParameters = builder.build()
             }.show()
     }
 
@@ -1354,20 +1382,20 @@ class PlayerActivity : AppCompatActivity() {
                     android.widget.Toast.makeText(this, "This subtitle format is not supported on this device.", android.widget.Toast.LENGTH_SHORT).show()
                     return@setSingleChoiceItems
                 }
-                val builder = currentPlayer.trackSelectionParameters.buildUpon()
-                    .clearOverridesOfType(C.TRACK_TYPE_TEXT)
-                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, which == 0)
-                if (which > 0) {
+                if (which == 0) {
+                    currentPlayer.trackSelectionParameters = currentPlayer.trackSelectionParameters.buildUpon()
+                        .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                        .build()
+                } else {
                     val selected = selections.getOrNull(which)
                     if (selected != null) {
-                        builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                        builder.addOverride(androidx.media3.common.TrackSelectionOverride(selected.first, listOf(selected.second)))
+                        applyEmbeddedSubtitleSelection(selected.first, selected.second)
                     } else {
                         android.widget.Toast.makeText(this, "Subtitle track is not available yet. Reopen the list after loading completes.", android.widget.Toast.LENGTH_SHORT).show()
                         return@setSingleChoiceItems
                     }
                 }
-                currentPlayer.trackSelectionParameters = builder.build()
                 captionLabel.visibility = if (which == 0) View.GONE else View.VISIBLE
                 currentSubtitleValueLabel?.text = if (which == 0) "None" else choices[which].removeSuffix(" (unsupported)")
                 dialog.dismiss()
