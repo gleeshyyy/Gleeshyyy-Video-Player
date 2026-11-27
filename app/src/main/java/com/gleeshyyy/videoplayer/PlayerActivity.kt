@@ -299,7 +299,7 @@ class PlayerActivity : AppCompatActivity() {
         }
         fun section(label: String) {
             panel.addView(TextView(this).apply {
-                text = label
+                text = LanguageManager.translate(this@PlayerActivity, label)
                 textSize = 11f
                 typeface = Typeface.DEFAULT_BOLD
                 letterSpacing = 0.06f
@@ -326,7 +326,7 @@ class PlayerActivity : AppCompatActivity() {
                 }
             }
             item.addView(TextView(this).apply {
-                text = label
+                text = LanguageManager.translate(this@PlayerActivity, label)
                 textSize = 13f
                 setTextColor(if (selected) 0xFFFFFFFF.toInt() else 0xEFFFFFFF.toInt())
             }, LinearLayout.LayoutParams(0, -2, 1f))
@@ -567,7 +567,7 @@ class PlayerActivity : AppCompatActivity() {
             textSize = 38f
             gravity = Gravity.CENTER
             setTextColor(palette.text)
-            contentDescription = "Back to video library"
+            contentDescription = LanguageManager.translate(this@PlayerActivity, "Back to video library")
             setOnClickListener { finish() }
         }
         titleRow.addView(backButton, LinearLayout.LayoutParams(dpPlayer(46), dpPlayer(50)))
@@ -590,7 +590,7 @@ class PlayerActivity : AppCompatActivity() {
         }
         orientationIcon = PhoneOrientationIcon(this).apply {
             setLandscape(videoIsLandscape)
-            contentDescription = "Switch screen orientation"
+            contentDescription = LanguageManager.translate(this@PlayerActivity, "Switch screen orientation")
             isClickable = true
             isFocusable = true
             setOnClickListener {
@@ -608,7 +608,7 @@ class PlayerActivity : AppCompatActivity() {
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             setTextColor(palette.accent)
-            contentDescription = "Subtitle customization"
+            contentDescription = LanguageManager.translate(this@PlayerActivity, "Subtitle customization")
             background = android.graphics.drawable.GradientDrawable().apply {
                 setColor(palette.raised)
                 cornerRadius = dpPlayer(8).toFloat()
@@ -625,7 +625,7 @@ class PlayerActivity : AppCompatActivity() {
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             setTextColor(palette.text)
-            contentDescription = "Change video aspect ratio"
+            contentDescription = LanguageManager.translate(this@PlayerActivity, "Change video aspect ratio")
             background = android.graphics.drawable.GradientDrawable().apply {
                 setColor(palette.raised)
                 cornerRadius = dpPlayer(8).toFloat()
@@ -715,7 +715,7 @@ class PlayerActivity : AppCompatActivity() {
             textSize = 38f
             gravity = Gravity.CENTER
             setTextColor(android.graphics.Color.WHITE)
-            contentDescription = "Back to video library"
+            contentDescription = LanguageManager.translate(this@PlayerActivity, "Back to video library")
             setOnClickListener { finish() }
         }, LinearLayout.LayoutParams(dpPlayer(48), dpPlayer(48)))
         landscapeHeader.addView(TextView(this).apply {
@@ -732,7 +732,7 @@ class PlayerActivity : AppCompatActivity() {
         }
         landscapeActions.addView(PhoneOrientationIcon(this).apply {
             setLandscape(videoIsLandscape)
-            contentDescription = "Switch screen orientation"
+            contentDescription = LanguageManager.translate(this@PlayerActivity, "Switch screen orientation")
             setOnClickListener {
                 requestedOrientation = if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
                     ActivityInfo.SCREEN_ORIENTATION_PORTRAIT else ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
@@ -741,13 +741,13 @@ class PlayerActivity : AppCompatActivity() {
         landscapeActions.addView(TextView(this).apply {
             text = LanguageManager.translate(this@PlayerActivity, "CC"); textSize = 14f; typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER; setTextColor(android.graphics.Color.WHITE)
-            contentDescription = "Subtitle customization"
+            contentDescription = LanguageManager.translate(this@PlayerActivity, "Subtitle customization")
             setOnClickListener { showSubtitleCustomization() }
         }, LinearLayout.LayoutParams(dpPlayer(42), dpPlayer(42)))
         landscapeActions.addView(TextView(this).apply {
             text = LanguageManager.translate(this@PlayerActivity, "RATIO"); textSize = 13f; typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER; setTextColor(android.graphics.Color.WHITE)
-            contentDescription = "Change video aspect ratio"
+            contentDescription = LanguageManager.translate(this@PlayerActivity, "Change video aspect ratio")
             setOnClickListener { handleAspectButtonTap() }
             setOnLongClickListener { showAspectRatioMenu(); true }
         }, LinearLayout.LayoutParams(dpPlayer(42), dpPlayer(42)))
@@ -811,7 +811,7 @@ class PlayerActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             setTextColor(palette.muted)
             setPadding(dpPlayer(10), dpPlayer(3), dpPlayer(5), dpPlayer(3))
-            contentDescription = "Dismiss resume message"
+            contentDescription = LanguageManager.translate(this@PlayerActivity, "Dismiss resume message")
             setOnClickListener { resumePromptVisible = false; resumeBanner.visibility = View.GONE }
         })
         playbackContainer.addView(resumeBanner, LinearLayout.LayoutParams(-1, -2))
@@ -932,7 +932,7 @@ class PlayerActivity : AppCompatActivity() {
         durationTimeLabel = TextView(this).apply {
             text = LanguageManager.translate(this@PlayerActivity, "0:00"); textSize = 11f; setTextColor(palette.text)
             gravity = Gravity.END
-            contentDescription = "Tap to switch between total and remaining time"
+            contentDescription = LanguageManager.translate(this@PlayerActivity, "Tap to switch between total and remaining time")
             setOnClickListener {
                 showingRemainingTime = !showingRemainingTime
                 getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).edit()
@@ -1210,8 +1210,8 @@ class PlayerActivity : AppCompatActivity() {
         }
         if (choices.size == 1) {
             AlertDialog.Builder(this).setTitle(LanguageManager.translate(this@PlayerActivity, "Embedded subtitles"))
-                .setMessage("No embedded subtitle tracks were detected in this video. If XPlayer can see them, the MKV may use a subtitle codec this player still cannot decode.")
-                .setPositiveButton("OK", null).show()
+                .setMessage(LanguageManager.translate(this@PlayerActivity, "No embedded subtitle tracks were detected in this video. If XPlayer can see them, the MKV may use a subtitle codec this player still cannot decode."))
+                .setPositiveButton(LanguageManager.translate(this@PlayerActivity, "OK"), null).show()
             return
         }
         AlertDialog.Builder(this).setTitle(LanguageManager.translate(this@PlayerActivity, "Embedded subtitles"))
@@ -1387,7 +1387,7 @@ class PlayerActivity : AppCompatActivity() {
             textSize = 34f
             gravity = Gravity.CENTER
             setTextColor(palette.text)
-            contentDescription = "Back to video player"
+            contentDescription = LanguageManager.translate(this@PlayerActivity, "Back to video player")
             setOnClickListener { removePanel() }
         }, LinearLayout.LayoutParams(dpPlayer(42), dpPlayer(48)))
         header.addView(TextView(this).apply {
@@ -1401,7 +1401,7 @@ class PlayerActivity : AppCompatActivity() {
             textSize = 25f
             gravity = Gravity.CENTER
             setTextColor(palette.muted)
-            contentDescription = "Close subtitle settings"
+            contentDescription = LanguageManager.translate(this@PlayerActivity, "Close subtitle settings")
             setOnClickListener { removePanel() }
         }, LinearLayout.LayoutParams(dpPlayer(36), dpPlayer(42)))
         panel.addView(header)
@@ -1607,7 +1607,7 @@ class PlayerActivity : AppCompatActivity() {
                 currentSubtitleValueLabel?.text = if (which == 0) "None" else choices[which].removeSuffix(" (unsupported)")
                 dialog.dismiss()
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(LanguageManager.translate(this@PlayerActivity, "Cancel"), null)
             .show()
     }
 
@@ -1643,7 +1643,7 @@ class PlayerActivity : AppCompatActivity() {
             setSelectAllOnFocus(true)
             setPadding(0, 0, 0, 0)
             background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
-            contentDescription = "Editable subtitle delay in seconds"
+            contentDescription = LanguageManager.translate(this@PlayerActivity, "Editable subtitle delay in seconds")
             setOnFocusChangeListener { _, hasFocus ->
                 if (!hasFocus) commitDelayValue()
             }
@@ -1665,7 +1665,7 @@ class PlayerActivity : AppCompatActivity() {
         }
         val closeButton = TextView(this).apply {
             text = LanguageManager.translate(this@PlayerActivity, "×"); textSize = 19f; gravity = Gravity.CENTER
-            setTextColor(0xFFCCCCCC.toInt()); contentDescription = "Close subtitle delay"
+            setTextColor(0xFFCCCCCC.toInt()); contentDescription = LanguageManager.translate(this@PlayerActivity, "Close subtitle delay")
             setOnClickListener { close() }
         }
         fun refreshValue() {
@@ -2116,7 +2116,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun showEndBehaviorOptions() {
-        val options = arrayOf("Play next video", "Repeat current video", "Stop and return to list")
+        val options = arrayOf("Play next video", "Repeat current video", "Stop and return to list").map { LanguageManager.translate(this@PlayerActivity, it) }.toTypedArray()
         val prefs = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
         val selected = prefs.getInt("playback_end_behavior", 0).coerceIn(0, 2)
         AlertDialog.Builder(this).setTitle(LanguageManager.translate(this@PlayerActivity, "When this video ends"))
@@ -2124,7 +2124,7 @@ class PlayerActivity : AppCompatActivity() {
                 prefs.edit().putInt("playback_end_behavior", which).apply()
                 applyEndBehavior(true)
                 dialog.dismiss()
-            }.setNegativeButton("Cancel", null).show()
+            }.setNegativeButton(LanguageManager.translate(this@PlayerActivity, "Cancel"), null).show()
     }
 
     private fun applyEndBehavior(reload: Boolean) {
