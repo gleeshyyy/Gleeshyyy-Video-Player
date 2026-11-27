@@ -385,7 +385,7 @@ class PlayerActivity : AppCompatActivity() {
         fun adjustment(label: String, initial: Int, onValue: (Int) -> Unit) {
             val row = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
             val heading = TextView(this).apply {
-                text = LanguageManager.translate(this@PlayerActivity, "$label  $initial%")
+                text = LanguageManager.translate(this@PlayerActivity, label) + "  $initial%"
                 textSize = 12f
                 setTextColor(0xDDFFFFFF.toInt())
             }
@@ -397,7 +397,7 @@ class PlayerActivity : AppCompatActivity() {
                 setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                     override fun onProgressChanged(bar: SeekBar?, value: Int, fromUser: Boolean) {
                         val percent = value + 50
-                        heading.text = LanguageManager.translate(this@PlayerActivity, "$label  $percent%")
+                        heading.text = LanguageManager.translate(this@PlayerActivity, label) + "  $percent%"
                         onValue(percent)
                     }
                     override fun onStartTrackingTouch(bar: SeekBar?) {}
@@ -441,7 +441,7 @@ class PlayerActivity : AppCompatActivity() {
                 minimumHeight = dpPlayer(38)
             }
             row.addView(TextView(this).apply {
-                text = label
+                text = LanguageManager.translate(this@PlayerActivity, label)
                 textSize = 11f
                 setTextColor(0xEFFFFFFF.toInt())
             }, LinearLayout.LayoutParams(0, -2, 1f))
@@ -1073,13 +1073,13 @@ class PlayerActivity : AppCompatActivity() {
     private fun attachExternalSubtitle(uri: Uri) {
         val displayName = queryDisplayName(uri)
         if (!displayName.endsWith(".srt", ignoreCase = true)) {
-            android.widget.Toast.makeText(this, "Please choose an .srt subtitle file", android.widget.Toast.LENGTH_LONG).show()
+            android.widget.Toast.makeText(this, LanguageManager.translate(this@PlayerActivity, "Please choose an .srt subtitle file"), android.widget.Toast.LENGTH_LONG).show()
             return
         }
         try {
             contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         } catch (_: Exception) {
-            android.widget.Toast.makeText(this, "This file provider does not allow saved subtitle access; it may not remain available after closing.", android.widget.Toast.LENGTH_LONG).show()
+            android.widget.Toast.makeText(this, LanguageManager.translate(this@PlayerActivity, "This file provider does not allow saved subtitle access; it may not remain available after closing."), android.widget.Toast.LENGTH_LONG).show()
         }
         val currentPlayer = player ?: return
         val currentPosition = currentPlayer.currentPosition.coerceAtLeast(0L)
@@ -1106,7 +1106,7 @@ class PlayerActivity : AppCompatActivity() {
         )
         loadExternalSubtitleCues(uri)
         if (::subtitleFileLabel.isInitialized) {
-            subtitleFileLabel.text = LanguageManager.translate(this@PlayerActivity, "Loaded: $displayName")
+            subtitleFileLabel.text = LanguageManager.translate(this@PlayerActivity, "Loaded:") + " $displayName"
             subtitleFileLabel.setTextColor(palette.accent)
         }
         currentSubtitleValueLabel?.text = displayName
@@ -1114,7 +1114,7 @@ class PlayerActivity : AppCompatActivity() {
         currentPlayer.setMediaItem(updatedItem, currentPosition)
         currentPlayer.prepare()
         currentPlayer.playWhenReady = wasPlaying
-        android.widget.Toast.makeText(this, "Subtitle loaded: $displayName", android.widget.Toast.LENGTH_SHORT).show()
+        android.widget.Toast.makeText(this, LanguageManager.translate(this@PlayerActivity, "Subtitle loaded:") + " $displayName", android.widget.Toast.LENGTH_SHORT).show()
     }
 
     private fun launchSubtitlePicker() {
@@ -1165,7 +1165,7 @@ class PlayerActivity : AppCompatActivity() {
         val language = format.language?.takeIf { it.isNotBlank() && it != "und" }
             ?.let { java.util.Locale.forLanguageTag(it).getDisplayLanguage(java.util.Locale.getDefault()) }
             ?.takeIf { it.isNotBlank() }
-        return label ?: language ?: "Subtitle ${index + 1}"
+        return label ?: language ?: LanguageManager.translate(this@PlayerActivity, "Subtitle ${index + 1}")
     }
 
     private fun applyEmbeddedSubtitleSelection(trackGroup: androidx.media3.common.TrackGroup, trackIndex: Int) {
@@ -1222,7 +1222,7 @@ class PlayerActivity : AppCompatActivity() {
                         .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
                         .build()
                 } else if (!supported.getOrElse(which) { false }) {
-                    android.widget.Toast.makeText(this, "This subtitle format is not supported on this device.", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(this, LanguageManager.translate(this@PlayerActivity, "This subtitle format is not supported on this device."), android.widget.Toast.LENGTH_SHORT).show()
                     return@setItems
                 } else {
                     val selected = selections.getOrNull(which) ?: return@setItems
@@ -1431,7 +1431,7 @@ class PlayerActivity : AppCompatActivity() {
             })
             if (detail != null) {
                 val detailView = TextView(this).apply {
-                    text = detail
+                    text = LanguageManager.translate(this@PlayerActivity, detail)
                     textSize = 12f
                     setTextColor(palette.muted)
                     setPadding(0, dpPlayer(3), 0, 0)
@@ -1540,7 +1540,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun currentSubtitleSummary(): String {
-        val current = player ?: return externalSubtitleName ?: "None"
+        val current = player ?: return externalSubtitleName ?: LanguageManager.translate(this@PlayerActivity, "None")
         if (externalSubtitleUri != null) return externalSubtitleName ?: "External subtitle"
         current.currentTracks.groups.forEach { group ->
             if (group.type != C.TRACK_TYPE_TEXT) return@forEach
@@ -1550,12 +1550,12 @@ class PlayerActivity : AppCompatActivity() {
                 return subtitleTrackLabel(format, index)
             }
         }
-        return "None"
+        return LanguageManager.translate(this@PlayerActivity, "None")
     }
 
     private fun showCurrentSubtitleChoices() {
         val currentPlayer = player ?: return
-        val choices = mutableListOf("None")
+        val choices = mutableListOf(LanguageManager.translate(this@PlayerActivity, "None"))
         val selections = mutableListOf<Pair<androidx.media3.common.TrackGroup, Int>?>(null)
         val supported = mutableListOf(true)
         var selectedChoice = 0
@@ -1568,7 +1568,7 @@ class PlayerActivity : AppCompatActivity() {
                     (format.label == externalSubtitleName || format.sampleMimeType == MimeTypes.APPLICATION_SUBRIP)
                 val baseLabel = if (isExternal) externalSubtitleName ?: "External subtitle"
                     else subtitleTrackLabel(format, index)
-                choices.add(if (isSupported) baseLabel else "${baseLabel} (unsupported)")
+                choices.add(if (isSupported) baseLabel else "${baseLabel} (${LanguageManager.translate(this@PlayerActivity, "unsupported")})")
                 selections.add(group.mediaTrackGroup to index)
                 supported.add(isSupported)
                 if (group.isTrackSelected(index)) selectedChoice = choices.lastIndex
@@ -1596,7 +1596,7 @@ class PlayerActivity : AppCompatActivity() {
                     if (selected != null) {
                         applyEmbeddedSubtitleSelection(selected.first, selected.second)
                     } else {
-                        android.widget.Toast.makeText(this, "Subtitle track is not available yet. Reopen the list after loading completes.", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(this, LanguageManager.translate(this@PlayerActivity, "Subtitle track is not available yet. Reopen the list after loading completes."), android.widget.Toast.LENGTH_SHORT).show()
                         return@setSingleChoiceItems
                     }
                 }
@@ -1604,7 +1604,7 @@ class PlayerActivity : AppCompatActivity() {
                     captionLabel.text = LanguageManager.translate(this@PlayerActivity, "")
                     captionLabel.visibility = View.GONE
                 }
-                currentSubtitleValueLabel?.text = if (which == 0) "None" else choices[which].removeSuffix(" (unsupported)")
+                currentSubtitleValueLabel?.text = if (which == 0) LanguageManager.translate(this@PlayerActivity, "None") else choices[which].removeSuffix(" (${LanguageManager.translate(this@PlayerActivity, "unsupported")})")
                 dialog.dismiss()
             }
             .setNegativeButton(LanguageManager.translate(this@PlayerActivity, "Cancel"), null)
