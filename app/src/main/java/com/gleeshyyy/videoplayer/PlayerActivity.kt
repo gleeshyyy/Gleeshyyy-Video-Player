@@ -596,7 +596,18 @@ class PlayerActivity : AppCompatActivity() {
         }
         playbackArea = FrameLayout(this)
         playbackArea.addView(playerView, FrameLayout.LayoutParams(-1, -1))
-        playbackArea.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> applyAspectMode() }
+        playbackArea.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            applyAspectMode()
+            if (::captionLabel.isInitialized) {
+                val prefs = subtitlePrefs()
+                applySubtitleStyle(
+                    if (subtitleRemembered()) prefs.getFloat("subtitle_size", 22f) else 22f,
+                    if (subtitleRemembered()) prefs.getInt("subtitle_color", android.graphics.Color.WHITE) else android.graphics.Color.WHITE,
+                    if (subtitleRemembered()) prefs.getInt("subtitle_position", 18) else 18,
+                    false
+                )
+            }
+        }
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: MotionEvent): Boolean = true
 
