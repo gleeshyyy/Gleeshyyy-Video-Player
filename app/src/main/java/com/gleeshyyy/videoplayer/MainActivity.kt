@@ -6,6 +6,7 @@ import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.database.Cursor
 import android.graphics.Bitmap
+import android.media.MediaExtractor
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -67,6 +68,7 @@ class MainActivity : AppCompatActivity() {
     private var scanInProgress = false
     private val sortLabels = listOf("Longest", "A–Z", "Date modified")
     private val libraryExecutor = Executors.newSingleThreadExecutor()
+    private val subtitleScanExecutor = Executors.newSingleThreadExecutor()
     private var libraryLoadGeneration = 0
     private val thumbnailExecutor = Executors.newFixedThreadPool(2)
     private val thumbnailHandler = Handler(Looper.getMainLooper())
@@ -381,6 +383,7 @@ class MainActivity : AppCompatActivity() {
                 if (isFinishing || isDestroyed || generation != libraryLoadGeneration) return@post
                 allVideos = videos
                 writeCachedVideos(videos)
+                scanEmbeddedSubtitleTracks(videos)
                 libraryLoaded = true
                 scanInProgress = false
                 if (selectedFolder != null && videos.none { it.folderPath == selectedFolder }) selectedFolder = null
@@ -389,6 +392,57 @@ class MainActivity : AppCompatActivity() {
                     val remaining = (1200L - (System.currentTimeMillis() - refreshStartedAt)).coerceAtLeast(0L)
                     thumbnailHandler.postDelayed({ if (::swipeRefresh.isInitialized) swipeRefresh.isRefreshing = false }, remaining)
                 }
+            }
+        }
+    }
+
+    private fun scanEmbeddedSubtitleTracks(videos: List<VideoItem>) {
+        if (videos.isEmpty()) return
+        val prefs = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+        subtitleScanExecutor.execute {
+            var badgeChanged = false
+            for (video in videos) {
+                val uriText = video.uri.toString()
+                val detectedKey = "embedded_subtitles_$uriText"
+                val scannedKey = "embedded_subtitle_scan_done_$uriText"
+                if (prefs.getBoolean(scannedKey, false)) continue
+                var scanSucceeded = false
+                var hasTextTrack = false
+                val extractor = MediaExtractor()
+                try {
+                    extractor.setDataSource(this, video.uri, null)
+                    scanSucceeded = true
+                    for (index in 0 until extractor.trackCount) {
+                        val mime = extractor.getTrackFormat(index)
+                            .getString(android.media.MediaFormat.KEY_MIME) ?: continue
+                        if (mime.startsWith("text/") ||
+                            mime in setOf(
+                                "application/x-subrip",
+                                "application/pgs",
+                                "application/vobsub",
+                                "application/ttml+xml",
+                                "application/x-ssa",
+                                "application/x-ass"
+                            )) {
+                            hasTextTrack = true
+                            break
+                        }
+                    }
+                } catch (_: Exception) {
+                    // Failed scans remain eligible for retry on the next library load.
+                } finally {
+                    runCatching { extractor.release() }
+                }
+                if (scanSucceeded) {
+                    prefs.edit().putBoolean(scannedKey, true).apply()
+                    if (hasTextTrack && !prefs.getBoolean(detectedKey, false)) {
+                        prefs.edit().putBoolean(detectedKey, true).apply()
+                        badgeChanged = true
+                    }
+                }
+            }
+            if (badgeChanged) thumbnailHandler.post {
+                if (!isFinishing && !isDestroyed) renderHome()
             }
         }
     }
@@ -1216,6 +1270,7 @@ class MainActivity : AppCompatActivity() {
         wallpaperExecutor.shutdownNow()
         libraryExecutor.shutdownNow()
         thumbnailExecutor.shutdownNow()
+        subtitleScanExecutor.shutdownNow()
         super.onDestroy()
     }
 
