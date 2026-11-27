@@ -51,6 +51,9 @@ class PlayerActivity : AppCompatActivity() {
     private var externalSubtitleName: String? = null
     private var subtitleDelayMs = 0L
     private var subtitlePositionPercent = 18
+    private var externalSubtitleDragStartY = 0f
+    private var externalSubtitleDragStartPosition = 18f
+    private var externalSubtitleDragging = false
     private var subtitleSizeSp = 22f
     private var subtitleColor = android.graphics.Color.WHITE
     private lateinit var portraitActionRow: LinearLayout
@@ -650,7 +653,9 @@ class PlayerActivity : AppCompatActivity() {
         })
         gestureLayer = View(this).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            setOnTouchListener { _, event -> handlePlaybackGesture(event) }
+            setOnTouchListener { _, event ->
+                handleExternalSubtitleDrag(event) || handlePlaybackGesture(event)
+            }
         }
         playbackArea.addView(gestureLayer, FrameLayout.LayoutParams(-1, -1))
         seekFeedbackOverlay = SeekFeedbackOverlay(this).apply { visibility = View.GONE; isClickable = false; isFocusable = false }
@@ -1185,6 +1190,42 @@ class PlayerActivity : AppCompatActivity() {
     private fun subtitlePrefs() = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
 
     private fun subtitleRemembered(): Boolean = subtitlePrefs().getBoolean("remember_subtitles", true)
+
+    private fun handleExternalSubtitleDrag(event: MotionEvent): Boolean {
+        if (externalSubtitleUri == null) {
+            externalSubtitleDragging = false
+            return false
+        }
+        val height = playbackArea.height.toFloat().coerceAtLeast(1f)
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                // The gesture layer sits above PlayerView's native SubtitleView.
+                // Capture only touches in the lower subtitle zone, leaving the rest
+                // of the screen's playback gestures unchanged.
+                val subtitleZoneTop = (1f - subtitlePositionPercent / 100f - 0.25f).coerceIn(0.62f, 0.88f)
+                if (event.y / height < subtitleZoneTop) return false
+                externalSubtitleDragStartY = event.rawY
+                externalSubtitleDragStartPosition = subtitlePositionPercent.toFloat()
+                externalSubtitleDragging = true
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (!externalSubtitleDragging) return false
+                subtitlePositionPercent = (
+                    externalSubtitleDragStartPosition -
+                        (event.rawY - externalSubtitleDragStartY) / height * 100f
+                    ).toInt().coerceIn(0, 85)
+                applySubtitleStyle(subtitleSizeSp, subtitleColor, subtitlePositionPercent, true)
+                return true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                val wasDragging = externalSubtitleDragging
+                externalSubtitleDragging = false
+                return wasDragging
+            }
+        }
+        return externalSubtitleDragging
+    }
 
     private fun applySubtitleStyle(size: Float, color: Int, position: Int, save: Boolean) {
         // Embedded subtitles deliberately retain Media3's default style and position.
