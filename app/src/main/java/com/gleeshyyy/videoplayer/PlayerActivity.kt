@@ -1065,26 +1065,33 @@ class PlayerActivity : AppCompatActivity() {
         return name
     }
 
+    private fun subtitleTrackLabel(format: androidx.media3.common.Format, index: Int): String {
+        val label = format.label?.takeIf { it.isNotBlank() }
+        val language = format.language?.takeIf { it.isNotBlank() && it != "und" }
+            ?.let { java.util.Locale.forLanguageTag(it).getDisplayLanguage(java.util.Locale.getDefault()) }
+            ?.takeIf { it.isNotBlank() }
+        return label ?: language ?: "Subtitle \${index + 1}"
+    }
+
     private fun showEmbeddedSubtitleTracks() {
         val currentPlayer = player ?: return
         val choices = mutableListOf("Off")
-        val selections = mutableListOf<Pair<androidx.media3.common.TrackGroup, Int>?> (null)
+        val selections = mutableListOf<Pair<androidx.media3.common.TrackGroup, Int>?>(null)
+        val supported = mutableListOf(true)
         currentPlayer.currentTracks.groups.forEach { group ->
-            if (group.type == C.TRACK_TYPE_TEXT) {
-                for (index in 0 until group.length) {
-                    if (!group.isTrackSupported(index)) continue
-                    val format = group.getTrackFormat(index)
-                    val language = format.language?.takeIf { it.isNotBlank() && it != "und" }
-                    val label = format.label?.takeIf { it.isNotBlank() }
-                    val description = label ?: language ?: ("Subtitle " + selections.size)
-                    choices.add(description)
-                    selections.add(group.mediaTrackGroup to index)
-                }
+            if (group.type != C.TRACK_TYPE_TEXT) return@forEach
+            for (index in 0 until group.length) {
+                val format = group.getTrackFormat(index)
+                val isSupported = group.isTrackSupported(index)
+                val label = subtitleTrackLabel(format, index)
+                choices.add(if (isSupported) label else "\${label} (unsupported)")
+                selections.add(group.mediaTrackGroup to index)
+                supported.add(isSupported)
             }
         }
         if (choices.size == 1) {
             AlertDialog.Builder(this).setTitle("Embedded subtitles")
-                .setMessage("No embedded subtitle tracks were found in this video.")
+                .setMessage("No embedded subtitle tracks were detected in this video. If XPlayer can see them, the MKV may use a subtitle codec this player still cannot decode.")
                 .setPositiveButton("OK", null).show()
             return
         }
@@ -1095,8 +1102,11 @@ class PlayerActivity : AppCompatActivity() {
                     .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
                 if (which == 0) {
                     builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                } else if (!supported.getOrElse(which) { false }) {
+                    android.widget.Toast.makeText(this, "This subtitle format is not supported on this device.", android.widget.Toast.LENGTH_SHORT).show()
+                    return@setItems
                 } else {
-                    val selected = selections[which] ?: return@setItems
+                    val selected = selections.getOrNull(which) ?: return@setItems
                     builder.addOverride(androidx.media3.common.TrackSelectionOverride(selected.first, listOf(selected.second)))
                 }
                 currentPlayer.trackSelectionParameters = builder.build()
@@ -1305,43 +1315,45 @@ class PlayerActivity : AppCompatActivity() {
             for (index in 0 until group.length) {
                 if (!group.isTrackSelected(index)) continue
                 val format = group.getTrackFormat(index)
-                if (externalSubtitleUri != null && format.sampleMimeType == MimeTypes.APPLICATION_SUBRIP)
-                    return externalSubtitleName ?: "External subtitle"
-                return format.label?.takeIf { it.isNotBlank() }
-                    ?: format.language?.takeIf { it.isNotBlank() && it != "und" }
-                    ?: "Embedded subtitle"
+                return subtitleTrackLabel(format, index)
             }
         }
-        return if (externalSubtitleUri != null) externalSubtitleName ?: "External subtitle" else "None"
+        return "None"
     }
 
     private fun showCurrentSubtitleChoices() {
         val currentPlayer = player ?: return
         val choices = mutableListOf("None")
         val selections = mutableListOf<Pair<androidx.media3.common.TrackGroup, Int>?>(null)
+        val supported = mutableListOf(true)
         var selectedChoice = 0
         currentPlayer.currentTracks.groups.forEach { group ->
             if (group.type != C.TRACK_TYPE_TEXT) return@forEach
             for (index in 0 until group.length) {
-                if (!group.isTrackSupported(index)) continue
                 val format = group.getTrackFormat(index)
-                val isExternal = externalSubtitleUri != null && (format.label == externalSubtitleName || format.sampleMimeType == MimeTypes.APPLICATION_SUBRIP)
-                val label = if (isExternal) externalSubtitleName ?: "External subtitle"
-                    else format.label?.takeIf { it.isNotBlank() }
-                        ?: format.language?.takeIf { it.isNotBlank() && it != "und" }
-                        ?: "Embedded subtitle"
-                choices.add(label)
+                val isSupported = group.isTrackSupported(index)
+                val isExternal = externalSubtitleUri != null &&
+                    (format.label == externalSubtitleName || format.sampleMimeType == MimeTypes.APPLICATION_SUBRIP)
+                val baseLabel = if (isExternal) externalSubtitleName ?: "External subtitle"
+                    else subtitleTrackLabel(format, index)
+                choices.add(if (isSupported) baseLabel else "\${baseLabel} (unsupported)")
                 selections.add(group.mediaTrackGroup to index)
+                supported.add(isSupported)
                 if (group.isTrackSelected(index)) selectedChoice = choices.lastIndex
             }
         }
         if (externalSubtitleUri != null && choices.size == 1) {
             choices.add(externalSubtitleName ?: "External subtitle")
             selections.add(null)
+            supported.add(false)
         }
         AlertDialog.Builder(this)
             .setTitle("Current subtitles")
             .setSingleChoiceItems(choices.toTypedArray(), selectedChoice) { dialog, which ->
+                if (which > 0 && !supported.getOrElse(which) { false }) {
+                    android.widget.Toast.makeText(this, "This subtitle format is not supported on this device.", android.widget.Toast.LENGTH_SHORT).show()
+                    return@setSingleChoiceItems
+                }
                 val builder = currentPlayer.trackSelectionParameters.buildUpon()
                     .clearOverridesOfType(C.TRACK_TYPE_TEXT)
                     .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, which == 0)
@@ -1352,10 +1364,12 @@ class PlayerActivity : AppCompatActivity() {
                         builder.addOverride(androidx.media3.common.TrackSelectionOverride(selected.first, listOf(selected.second)))
                     } else {
                         android.widget.Toast.makeText(this, "Subtitle track is not available yet. Reopen the list after loading completes.", android.widget.Toast.LENGTH_SHORT).show()
+                        return@setSingleChoiceItems
                     }
                 }
                 currentPlayer.trackSelectionParameters = builder.build()
                 captionLabel.visibility = if (which == 0) View.GONE else View.VISIBLE
+                currentSubtitleValueLabel?.text = if (which == 0) "None" else choices[which].removeSuffix(" (unsupported)")
                 dialog.dismiss()
             }
             .setNegativeButton("Cancel", null)
