@@ -12,6 +12,8 @@ import android.content.res.ColorStateList
 import androidx.appcompat.widget.SwitchCompat
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 
 class SettingsActivity : AppCompatActivity() {
     private val prefs by lazy { getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE) }
@@ -171,7 +173,26 @@ class SettingsActivity : AppCompatActivity() {
     private fun showGeneral() {
         beginPage("General", true)
         body.addView(label("LANGUAGE", 12f, palette.accent, true).apply { setPadding(0, dp(28), 0, dp(12)) })
-        val language = settingRow("Language", "Coming in the next update")
+        val languageNames = listOf("English", "Français", "Español", "Kiswahili", "Русский", "中文（简体）", "हिन्दी", "తెలుగు", "தமிழ்")
+        val languageTags = listOf("en", "fr", "es", "sw", "ru", "zh-CN", "hi", "te", "ta")
+        val currentTag = AppCompatDelegate.getApplicationLocales().toLanguageTags().ifBlank {
+            prefs.getString("app_language", "en") ?: "en"
+        }
+        val currentIndex = languageTags.indexOfFirst { currentTag.startsWith(it, ignoreCase = true) }.coerceAtLeast(0)
+        val language = settingRow("Language", languageNames[currentIndex] + "  ›").apply {
+            setOnClickListener {
+                androidx.appcompat.app.AlertDialog.Builder(this@SettingsActivity)
+                    .setTitle("Choose language")
+                    .setSingleChoiceItems(languageNames.toTypedArray(), currentIndex) { dialog, which ->
+                        val tag = languageTags[which]
+                        prefs.edit().putString("app_language", tag).apply()
+                        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(tag))
+                        dialog.dismiss()
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+        }
         body.addView(language)
         body.addView(label("HISTORY", 12f, palette.accent, true).apply { setPadding(0, dp(28), 0, dp(12)) })
         val historyRow = LinearLayout(this).apply {
@@ -195,9 +216,16 @@ class SettingsActivity : AppCompatActivity() {
         historyRow.addView(toggle)
         body.addView(historyRow)
         body.addView(label("ABOUT", 12f, palette.accent, true).apply { setPadding(0, dp(28), 0, dp(12)) })
-        body.addView(settingRow("Version", "1.1"))
+        body.addView(settingRow("Version", "GleeshPlayer v" + BuildConfig.VERSION_NAME))
         body.addView(settingRow("Developer", "Muhirwa Elyse"))
         body.addView(settingRow("Assistant Developer", "Lil Ty"))
+        val instagramRow = settingRow("Instagram", "◎  @blocioooo").apply {
+            setOnClickListener {
+                val profile = android.net.Uri.parse("https://www.instagram.com/blocioooo")
+                startActivity(Intent(Intent.ACTION_VIEW, profile))
+            }
+        }
+        body.addView(instagramRow)
     }
 
     private fun showVideo() {
