@@ -994,6 +994,17 @@ object LanguageManager {
         "ta" to mapOf("videos" to "வீடியோக்கள்", "matches" to "முடிவுகள்", "Load more" to "மேலும் ஏற்று", "remaining" to "மீதமுள்ளவை", "selected" to "தேர்ந்தெடுக்கப்பட்டவை", "Scanning your videos…" to "உங்கள் வீடியோக்கள் ஸ்கேன் செய்யப்படுகின்றன…", "folders found" to "கோப்புறைகள் கண்டறியப்பட்டன")
     )
 
+    private val propertyWords: Map<String, Map<String, String>> = mapOf(
+        "fr" to mapOf("Name" to "Nom", "Path" to "Chemin", "Duration" to "Durée", "Resolution" to "Résolution", "Size" to "Taille", "Videos" to "Vidéos", "Total size" to "Taille totale", "Could not request delete permission" to "Impossible de demander l’autorisation de suppression", "Could not request permission to edit this media" to "Impossible de demander l’autorisation de modifier ce média"),
+        "es" to mapOf("Name" to "Nombre", "Path" to "Ruta", "Duration" to "Duración", "Resolution" to "Resolución", "Size" to "Tamaño", "Videos" to "Vídeos", "Total size" to "Tamaño total", "Could not request delete permission" to "No se pudo solicitar permiso para eliminar", "Could not request permission to edit this media" to "No se pudo solicitar permiso para editar este archivo"),
+        "sw" to mapOf("Name" to "Jina", "Path" to "Njia", "Duration" to "Muda", "Resolution" to "Mwonekano", "Size" to "Ukubwa", "Videos" to "Video", "Total size" to "Jumla ya ukubwa", "Could not request delete permission" to "Imeshindikana kuomba ruhusa ya kufuta", "Could not request permission to edit this media" to "Imeshindikana kuomba ruhusa ya kuhariri faili hili"),
+        "ru" to mapOf("Name" to "Название", "Path" to "Путь", "Duration" to "Длительность", "Resolution" to "Разрешение", "Size" to "Размер", "Videos" to "Видео", "Total size" to "Общий размер", "Could not request delete permission" to "Не удалось запросить разрешение на удаление", "Could not request permission to edit this media" to "Не удалось запросить разрешение на изменение файла"),
+        "zh" to mapOf("Name" to "名称", "Path" to "路径", "Duration" to "时长", "Resolution" to "分辨率", "Size" to "大小", "Videos" to "视频", "Total size" to "总大小", "Could not request delete permission" to "无法请求删除权限", "Could not request permission to edit this media" to "无法请求编辑此媒体的权限"),
+        "hi" to mapOf("Name" to "नाम", "Path" to "पथ", "Duration" to "अवधि", "Resolution" to "रिज़ॉल्यूशन", "Size" to "आकार", "Videos" to "वीडियो", "Total size" to "कुल आकार", "Could not request delete permission" to "हटाने की अनुमति नहीं माँगी जा सकी", "Could not request permission to edit this media" to "मीडिया संपादित करने की अनुमति नहीं माँगी जा सकी"),
+        "te" to mapOf("Name" to "పేరు", "Path" to "మార్గం", "Duration" to "నిడివి", "Resolution" to "రిజల్యూషన్", "Size" to "పరిమాణం", "Videos" to "వీడియోలు", "Total size" to "మొత్తం పరిమాణం", "Could not request delete permission" to "తొలగింపు అనుమతిని కోరలేకపోయాం", "Could not request permission to edit this media" to "ఈ మీడియాను సవరించడానికి అనుమతిని కోరలేకపోయాం"),
+        "ta" to mapOf("Name" to "பெயர்", "Path" to "பாதை", "Duration" to "கால அளவு", "Resolution" to "தெளிவுத்திறன்", "Size" to "அளவு", "Videos" to "வீடியோக்கள்", "Total size" to "மொத்த அளவு", "Could not request delete permission" to "நீக்க அனுமதி கோர முடியவில்லை", "Could not request permission to edit this media" to "இந்த மீடியாவைத் திருத்த அனுமதி கோர முடியவில்லை")
+    )
+
     fun currentTag(): String =
         AppCompatDelegate.getApplicationLocales().toLanguageTags().ifBlank { "en" }
 
@@ -1001,6 +1012,7 @@ object LanguageManager {
         val language = currentTag().substringBefore('-').lowercase()
         val dictionary = dictionaries[language] ?: return source
         dictionary[source]?.let { return it }
+        propertyWords[language]?.get(source)?.let { return it }
         val dynamic = dynamicWords[language] ?: emptyMap()
 
         val videoCount = Regex("^(\\d+) videos$").matchEntire(source)
