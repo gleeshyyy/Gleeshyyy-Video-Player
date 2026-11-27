@@ -51,6 +51,8 @@ class PlayerActivity : AppCompatActivity() {
     private var externalSubtitleName: String? = null
     private var subtitleDelayMs = 0L
     private var subtitlePositionPercent = 18
+    private var subtitleSizeSp = 22f
+    private var subtitleColor = android.graphics.Color.WHITE
     private lateinit var portraitActionRow: LinearLayout
     private lateinit var landscapeActions: LinearLayout
     private var autoEmbeddedSubtitleApplied = false
@@ -603,12 +605,7 @@ class PlayerActivity : AppCompatActivity() {
             applyAspectMode()
             if (::captionLabel.isInitialized) {
                 val prefs = subtitlePrefs()
-                applySubtitleStyle(
-                    if (subtitleRemembered()) prefs.getFloat("subtitle_size", 22f) else 22f,
-                    if (subtitleRemembered()) prefs.getInt("subtitle_color", android.graphics.Color.WHITE) else android.graphics.Color.WHITE,
-                    if (subtitleRemembered()) prefs.getInt("subtitle_position", 18) else 18,
-                    false
-                )
+                applySubtitleStyle(subtitleSizeSp, subtitleColor, subtitlePositionPercent, false)
             }
         }
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
@@ -826,11 +823,7 @@ class PlayerActivity : AppCompatActivity() {
                     MotionEvent.ACTION_MOVE -> {
                         val start = view.tag as? FloatArray ?: return@setOnTouchListener false
                         subtitlePositionPercent = (start[1] + (event.rawY - start[0]) / height * 100f).toInt().coerceIn(0, 85)
-                        applySubtitleStyle(
-                            if (subtitleRemembered()) subtitlePrefs().getFloat("subtitle_size", 22f) else 22f,
-                            if (subtitleRemembered()) subtitlePrefs().getInt("subtitle_color", android.graphics.Color.WHITE) else android.graphics.Color.WHITE,
-                            subtitlePositionPercent, true
-                        )
+                        applySubtitleStyle(subtitleSizeSp, subtitleColor, subtitlePositionPercent, true)
                         true
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> true
@@ -1195,6 +1188,8 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun applySubtitleStyle(size: Float, color: Int, position: Int, save: Boolean) {
         // Style Media3's actual renderer for both embedded MKV and external SRT.
+        subtitleSizeSp = size
+        subtitleColor = color
         subtitlePositionPercent = position.coerceIn(0, 85)
         playerView.subtitleView?.apply {
             visibility = View.VISIBLE
