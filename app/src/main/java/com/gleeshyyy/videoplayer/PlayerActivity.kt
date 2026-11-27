@@ -224,7 +224,7 @@ class PlayerActivity : AppCompatActivity() {
             background = android.graphics.drawable.GradientDrawable().apply {
                 cornerRadius = dpPlayer(18).toFloat()
                 setColor(0xD910171D.toInt())
-                setStroke(dpPlayer(1), 0x553FFFFFF)
+                setStroke(dpPlayer(1), 0x55FFFFFF)
             }
         }
         val panel = LinearLayout(this).apply {
