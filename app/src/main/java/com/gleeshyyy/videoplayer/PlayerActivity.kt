@@ -1477,7 +1477,7 @@ class PlayerActivity : AppCompatActivity() {
                     if (!fromUser) return
                     currentPosition = value
                     positionLabel.text = "Position: $currentPosition%"
-                    applySubtitleStyle(currentSize, android.graphics.Color.WHITE, currentPosition, true)
+                    applySubtitleStyle(currentSize, currentColor, currentPosition, true)
                 }
                 override fun onStartTrackingTouch(bar: SeekBar?) {}
                 override fun onStopTrackingTouch(bar: SeekBar?) {}
