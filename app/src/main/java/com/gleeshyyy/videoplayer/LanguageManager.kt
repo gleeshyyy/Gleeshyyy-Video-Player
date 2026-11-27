@@ -1038,6 +1038,17 @@ object LanguageManager {
         "ta" to mapOf("Fit" to "பொருத்து", "Fill" to "நிரப்பு", "Original" to "அசல்", "Stretch" to "நீட்டு", "Position" to "இடம்", "Size" to "அளவு", "unsupported" to "ஆதரிக்கப்படவில்லை")
     )
 
+    private val libraryWords: Map<String, Map<String, String>> = mapOf(
+        "fr" to mapOf("ALL FOLDERS" to "TOUS LES DOSSIERS", "Updating video library…" to "Mise à jour de la bibliothèque vidéo…", "No video folders found on this device." to "Aucun dossier vidéo trouvé sur cet appareil.", "Allow video access on the home screen to manage scanned folders." to "Autorisez l’accès aux vidéos sur l’écran d’accueil pour gérer les dossiers analysés.", "Internal storage" to "Stockage interne", "Unknown" to "Inconnu"),
+        "es" to mapOf("ALL FOLDERS" to "TODAS LAS CARPETAS", "Updating video library…" to "Actualizando biblioteca de vídeos…", "No video folders found on this device." to "No se encontraron carpetas de vídeo en este dispositivo.", "Allow video access on the home screen to manage scanned folders." to "Permite el acceso a vídeos en la pantalla principal para gestionar las carpetas analizadas.", "Internal storage" to "Almacenamiento interno", "Unknown" to "Desconocido"),
+        "sw" to mapOf("ALL FOLDERS" to "FOLDA ZOTE", "Updating video library…" to "Inasasisha maktaba ya video…", "No video folders found on this device." to "Hakuna folda za video zilizopatikana kwenye kifaa hiki.", "Allow video access on the home screen to manage scanned folders." to "Ruhusu ufikiaji wa video kwenye ukurasa wa mwanzo ili kudhibiti folda zilizochanganuliwa.", "Internal storage" to "Hifadhi ya ndani", "Unknown" to "Haijulikani"),
+        "ru" to mapOf("ALL FOLDERS" to "ВСЕ ПАПКИ", "Updating video library…" to "Обновление библиотеки видео…", "No video folders found on this device." to "На устройстве не найдены папки с видео.", "Allow video access on the home screen to manage scanned folders." to "Разрешите доступ к видео на главном экране, чтобы управлять сканируемыми папками.", "Internal storage" to "Внутренняя память", "Unknown" to "Неизвестно"),
+        "zh" to mapOf("ALL FOLDERS" to "所有文件夹", "Updating video library…" to "正在更新视频库…", "No video folders found on this device." to "此设备上未找到视频文件夹。", "Allow video access on the home screen to manage scanned folders." to "请在主屏幕允许访问视频，以管理扫描的文件夹。", "Internal storage" to "内部存储", "Unknown" to "未知"),
+        "hi" to mapOf("ALL FOLDERS" to "सभी फ़ोल्डर", "Updating video library…" to "वीडियो लाइब्रेरी अपडेट हो रही है…", "No video folders found on this device." to "इस डिवाइस पर कोई वीडियो फ़ोल्डर नहीं मिला।", "Allow video access on the home screen to manage scanned folders." to "स्कैन किए गए फ़ोल्डर प्रबंधित करने के लिए होम स्क्रीन पर वीडियो एक्सेस की अनुमति दें।", "Internal storage" to "आंतरिक स्टोरेज", "Unknown" to "अज्ञात"),
+        "te" to mapOf("ALL FOLDERS" to "అన్ని ఫోల్డర్లు", "Updating video library…" to "వీడియో లైబ్రరీ నవీకరించబడుతోంది…", "No video folders found on this device." to "ఈ పరికరంలో వీడియో ఫోల్డర్లు కనబడలేదు.", "Allow video access on the home screen to manage scanned folders." to "స్కాన్ చేసిన ఫోల్డర్లను నిర్వహించడానికి హోమ్ స్క్రీన్‌లో వీడియో యాక్సెస్‌ను అనుమతించండి.", "Internal storage" to "అంతర్గత నిల్వ", "Unknown" to "తెలియదు"),
+        "ta" to mapOf("ALL FOLDERS" to "அனைத்து கோப்புறைகள்", "Updating video library…" to "வீடியோ நூலகம் புதுப்பிக்கப்படுகிறது…", "No video folders found on this device." to "இந்த சாதனத்தில் வீடியோ கோப்புறைகள் எதுவும் இல்லை.", "Allow video access on the home screen to manage scanned folders." to "ஸ்கேன் செய்யப்பட்ட கோப்புறைகளை நிர்வகிக்க முகப்புத் திரையில் வீடியோ அணுகலை அனுமதிக்கவும்.", "Internal storage" to "உள் சேமிப்பு", "Unknown" to "தெரியவில்லை")
+    )
+
     fun currentTag(): String =
         AppCompatDelegate.getApplicationLocales().toLanguageTags().ifBlank { "en" }
 
@@ -1049,6 +1060,7 @@ object LanguageManager {
         subtitleWords[language]?.get(source)?.let { return it }
         themeWords[language]?.get(source)?.let { return it }
         playerWords[language]?.get(source)?.let { return it }
+        libraryWords[language]?.get(source)?.let { return it }
         val dynamic = dynamicWords[language] ?: emptyMap()
 
         if (source.endsWith(" This cannot be undone.")) {
