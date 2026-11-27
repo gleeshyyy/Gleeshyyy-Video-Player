@@ -805,13 +805,13 @@ class PlayerActivity : AppCompatActivity() {
             }
         }
         playbackArea.addView(captionLabel, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
-        // Move Media3's native subtitle renderer outside PlayerView so aspect-ratio
-        // changes cannot clip embedded or external subtitles to the video surface.
-        playerView.subtitleView?.let { subtitleView ->
-            (subtitleView.parent as? android.view.ViewGroup)?.removeView(subtitleView)
-            subtitleView.visibility = View.VISIBLE
-            playbackArea.addView(subtitleView, FrameLayout.LayoutParams(-1, -1))
-            subtitleView.setOnTouchListener { view, event ->
+        // Keep Media3's native subtitle renderer inside PlayerView.
+        // Embedded tracks use the renderer's untouched defaults; only external SRT
+        // captions receive the player's custom styling and drag interaction.
+        playerView.subtitleView?.apply {
+            visibility = View.VISIBLE
+            setOnTouchListener { view, event ->
+                if (externalSubtitleUri == null) return@setOnTouchListener false
                 val height = playbackArea.height.toFloat().coerceAtLeast(1f)
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
@@ -1187,7 +1187,9 @@ class PlayerActivity : AppCompatActivity() {
     private fun subtitleRemembered(): Boolean = subtitlePrefs().getBoolean("remember_subtitles", true)
 
     private fun applySubtitleStyle(size: Float, color: Int, position: Int, save: Boolean) {
-        // Style Media3's actual renderer for both embedded MKV and external SRT.
+        // Embedded subtitles deliberately retain Media3's default style and position.
+        // Player customization applies only to an attached external subtitle file.
+        if (externalSubtitleUri == null) return
         subtitleSizeSp = size
         subtitleColor = color
         subtitlePositionPercent = position.coerceIn(0, 85)
@@ -1381,9 +1383,12 @@ class PlayerActivity : AppCompatActivity() {
         }
         // Keep the title/back row visible while hiding playback action buttons.
         controlsHandler.removeCallbacks(hideControlsRunnable)
-        playerHeader.visibility = if (isLandscapeNow()) View.GONE else View.VISIBLE
+        val landscapeCc = isLandscapeNow()
+        playerHeader.visibility = if (landscapeCc) View.GONE else View.VISIBLE
         portraitActionRow.visibility = View.GONE
-        landscapeHeader.visibility = View.VISIBLE
+        // Exactly one title row stays visible: portrait header in portrait,
+        // landscape header in landscape. Hide its action buttons while CC is open.
+        landscapeHeader.visibility = if (landscapeCc) View.VISIBLE else View.GONE
         landscapeActions.visibility = View.GONE
         bottomControls.visibility = View.GONE
         playbackArea.findViewWithTag<View>("subtitle_delay_controller")?.let { (it.parent as? android.view.ViewGroup)?.removeView(it) }
