@@ -276,13 +276,13 @@ class PlayerActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
         }
         titleRow.addView(TextView(this).apply {
-            text = "▣   Aspect Ratio"
+            text = LanguageManager.translate(this@PlayerActivity, "▣   Aspect Ratio")
             textSize = 17f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(android.graphics.Color.WHITE)
         }, LinearLayout.LayoutParams(0, dpPlayer(42), 1f))
         titleRow.addView(TextView(this).apply {
-            text = "×"
+            text = LanguageManager.translate(this@PlayerActivity, "×")
             textSize = 25f
             gravity = Gravity.CENTER
             setTextColor(0xCCFFFFFF.toInt())
@@ -331,7 +331,7 @@ class PlayerActivity : AppCompatActivity() {
                 setTextColor(if (selected) 0xFFFFFFFF.toInt() else 0xEFFFFFFF.toInt())
             }, LinearLayout.LayoutParams(0, -2, 1f))
             if (selected) item.addView(TextView(this).apply {
-                text = "✓"
+                text = LanguageManager.translate(this@PlayerActivity, "✓")
                 textSize = 16f
                 typeface = Typeface.DEFAULT_BOLD
                 setTextColor(palette.accent)
@@ -365,12 +365,12 @@ class PlayerActivity : AppCompatActivity() {
             isFocusable = true
         }
         customHeader.addView(TextView(this).apply {
-            text = "⚙   Custom Adjustment"
+            text = LanguageManager.translate(this@PlayerActivity, "⚙   Custom Adjustment")
             textSize = 13f
             setTextColor(android.graphics.Color.WHITE)
         }, LinearLayout.LayoutParams(0, -2, 1f))
         val expandMark = TextView(this).apply {
-            text = "›"
+            text = LanguageManager.translate(this@PlayerActivity, "›")
             textSize = 22f
             setTextColor(0xDDFFFFFF.toInt())
         }
@@ -385,7 +385,7 @@ class PlayerActivity : AppCompatActivity() {
         fun adjustment(label: String, initial: Int, onValue: (Int) -> Unit) {
             val row = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
             val heading = TextView(this).apply {
-                text = "$label  $initial%"
+                text = LanguageManager.translate(this@PlayerActivity, "$label  $initial%")
                 textSize = 12f
                 setTextColor(0xDDFFFFFF.toInt())
             }
@@ -397,7 +397,7 @@ class PlayerActivity : AppCompatActivity() {
                 setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                     override fun onProgressChanged(bar: SeekBar?, value: Int, fromUser: Boolean) {
                         val percent = value + 50
-                        heading.text = "$label  $percent%"
+                        heading.text = LanguageManager.translate(this@PlayerActivity, "$label  $percent%")
                         onValue(percent)
                     }
                     override fun onStartTrackingTouch(bar: SeekBar?) {}
@@ -417,7 +417,7 @@ class PlayerActivity : AppCompatActivity() {
             if (selectedAspectRatio != null) { saveAspectSettings(); applyAspectMode() }
         }
         customContent.addView(TextView(this).apply {
-            text = "Reset"
+            text = LanguageManager.translate(this@PlayerActivity, "Reset")
             textSize = 12f
             gravity = Gravity.END
             setTextColor(palette.accent)
@@ -563,7 +563,7 @@ class PlayerActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
         }
         val backButton = TextView(this).apply {
-            text = "‹"
+            text = LanguageManager.translate(this@PlayerActivity, "‹")
             textSize = 38f
             gravity = Gravity.CENTER
             setTextColor(palette.text)
@@ -603,7 +603,7 @@ class PlayerActivity : AppCompatActivity() {
         }
         portraitActionRow.addView(orientationIcon, LinearLayout.LayoutParams(dpPlayer(44), dpPlayer(42)))
         val subtitleButton = TextView(this).apply {
-            text = "CC"
+            text = LanguageManager.translate(this@PlayerActivity, "CC")
             textSize = 15f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
@@ -620,7 +620,7 @@ class PlayerActivity : AppCompatActivity() {
             marginStart = dpPlayer(12)
         })
         val fitButton = TextView(this).apply {
-            text = "RATIO"
+            text = LanguageManager.translate(this@PlayerActivity, "RATIO")
             textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
@@ -711,7 +711,7 @@ class PlayerActivity : AppCompatActivity() {
             visibility = View.GONE
         }
         landscapeHeader.addView(TextView(this).apply {
-            text = "‹"
+            text = LanguageManager.translate(this@PlayerActivity, "‹")
             textSize = 38f
             gravity = Gravity.CENTER
             setTextColor(android.graphics.Color.WHITE)
@@ -739,13 +739,13 @@ class PlayerActivity : AppCompatActivity() {
             }
         }, LinearLayout.LayoutParams(dpPlayer(42), dpPlayer(42)))
         landscapeActions.addView(TextView(this).apply {
-            text = "CC"; textSize = 14f; typeface = Typeface.DEFAULT_BOLD
+            text = LanguageManager.translate(this@PlayerActivity, "CC"); textSize = 14f; typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER; setTextColor(android.graphics.Color.WHITE)
             contentDescription = "Subtitle customization"
             setOnClickListener { showSubtitleCustomization() }
         }, LinearLayout.LayoutParams(dpPlayer(42), dpPlayer(42)))
         landscapeActions.addView(TextView(this).apply {
-            text = "RATIO"; textSize = 13f; typeface = Typeface.DEFAULT_BOLD
+            text = LanguageManager.translate(this@PlayerActivity, "RATIO"); textSize = 13f; typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER; setTextColor(android.graphics.Color.WHITE)
             contentDescription = "Change video aspect ratio"
             setOnClickListener { handleAspectButtonTap() }
@@ -793,12 +793,12 @@ class PlayerActivity : AppCompatActivity() {
             visibility = View.GONE
         }
         resumeBanner.addView(TextView(this).apply {
-            text = "Continued from where you stopped"
+            text = LanguageManager.translate(this@PlayerActivity, "Continued from where you stopped")
             textSize = 12f
             setTextColor(palette.text)
         }, LinearLayout.LayoutParams(0, -2, 1f))
         resumeBanner.addView(TextView(this).apply {
-            text = "START"
+            text = LanguageManager.translate(this@PlayerActivity, "START")
             textSize = 12f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(palette.accent)
@@ -806,7 +806,7 @@ class PlayerActivity : AppCompatActivity() {
             setOnClickListener { player?.seekTo(0L); resumePromptVisible = false; resumeBanner.visibility = View.GONE }
         })
         resumeBanner.addView(TextView(this).apply {
-            text = "×"
+            text = LanguageManager.translate(this@PlayerActivity, "×")
             textSize = 22f
             gravity = Gravity.CENTER
             setTextColor(palette.muted)
@@ -927,10 +927,10 @@ class PlayerActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
         }
         currentTimeLabel = TextView(this).apply {
-            text = "0:00"; textSize = 11f; setTextColor(palette.text)
+            text = LanguageManager.translate(this@PlayerActivity, "0:00"); textSize = 11f; setTextColor(palette.text)
         }
         durationTimeLabel = TextView(this).apply {
-            text = "0:00"; textSize = 11f; setTextColor(palette.text)
+            text = LanguageManager.translate(this@PlayerActivity, "0:00"); textSize = 11f; setTextColor(palette.text)
             gravity = Gravity.END
             contentDescription = "Tap to switch between total and remaining time"
             setOnClickListener {
@@ -1006,7 +1006,7 @@ class PlayerActivity : AppCompatActivity() {
                     if (externalSubtitleUri == null) {
                         // Embedded subtitles stay on Media3's native renderer and retain defaults.
                         pendingSubtitleCue?.let { captionLabel.removeCallbacks(it) }
-                        captionLabel.text = ""
+                        captionLabel.text = LanguageManager.translate(this@PlayerActivity, "")
                         captionLabel.visibility = View.GONE
                         playerView.subtitleView?.visibility = View.VISIBLE
                         return
@@ -1106,7 +1106,7 @@ class PlayerActivity : AppCompatActivity() {
         )
         loadExternalSubtitleCues(uri)
         if (::subtitleFileLabel.isInitialized) {
-            subtitleFileLabel.text = "Loaded: $displayName"
+            subtitleFileLabel.text = LanguageManager.translate(this@PlayerActivity, "Loaded: $displayName")
             subtitleFileLabel.setTextColor(palette.accent)
         }
         currentSubtitleValueLabel?.text = displayName
@@ -1209,12 +1209,12 @@ class PlayerActivity : AppCompatActivity() {
             }
         }
         if (choices.size == 1) {
-            AlertDialog.Builder(this).setTitle("Embedded subtitles")
+            AlertDialog.Builder(this).setTitle(LanguageManager.translate(this@PlayerActivity, "Embedded subtitles"))
                 .setMessage("No embedded subtitle tracks were detected in this video. If XPlayer can see them, the MKV may use a subtitle codec this player still cannot decode.")
                 .setPositiveButton("OK", null).show()
             return
         }
-        AlertDialog.Builder(this).setTitle("Embedded subtitles")
+        AlertDialog.Builder(this).setTitle(LanguageManager.translate(this@PlayerActivity, "Embedded subtitles"))
             .setItems(choices.toTypedArray()) { _, which ->
                 if (which == 0) {
                     currentPlayer.trackSelectionParameters = currentPlayer.trackSelectionParameters.buildUpon()
@@ -1245,7 +1245,7 @@ class PlayerActivity : AppCompatActivity() {
     private fun loadExternalSubtitleCues(uri: Uri) {
         subtitleCueHandler.removeCallbacks(subtitleCueUpdater)
         externalSubtitleCues = emptyList()
-        captionLabel.text = ""
+        captionLabel.text = LanguageManager.translate(this@PlayerActivity, "")
         captionLabel.visibility = View.GONE
         Thread {
             val parsed = runCatching {
@@ -1383,7 +1383,7 @@ class PlayerActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
         }
         header.addView(TextView(this).apply {
-            text = "‹"
+            text = LanguageManager.translate(this@PlayerActivity, "‹")
             textSize = 34f
             gravity = Gravity.CENTER
             setTextColor(palette.text)
@@ -1391,13 +1391,13 @@ class PlayerActivity : AppCompatActivity() {
             setOnClickListener { removePanel() }
         }, LinearLayout.LayoutParams(dpPlayer(42), dpPlayer(48)))
         header.addView(TextView(this).apply {
-            text = "Subtitle"
+            text = LanguageManager.translate(this@PlayerActivity, "Subtitle")
             textSize = 19f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(palette.text)
         }, LinearLayout.LayoutParams(0, -2, 1f))
         header.addView(TextView(this).apply {
-            text = "×"
+            text = LanguageManager.translate(this@PlayerActivity, "×")
             textSize = 25f
             gravity = Gravity.CENTER
             setTextColor(palette.muted)
@@ -1454,7 +1454,7 @@ class PlayerActivity : AppCompatActivity() {
 
         sectionLabel("SUBTITLE STYLE")
         val sizeLabel = TextView(this).apply {
-            text = "Size: ${currentSize.toInt()} sp"
+            text = LanguageManager.translate(this@PlayerActivity, "Size: ${currentSize.toInt()} sp")
             textSize = 13f
             setTextColor(palette.text)
         }
@@ -1468,7 +1468,7 @@ class PlayerActivity : AppCompatActivity() {
                 override fun onProgressChanged(bar: SeekBar?, value: Int, fromUser: Boolean) {
                     if (!fromUser) return
                     currentSize = 12f + value * 1.5f
-                    sizeLabel.text = "Size: ${currentSize.toInt()} sp"
+                    sizeLabel.text = LanguageManager.translate(this@PlayerActivity, "Size: ${currentSize.toInt()} sp")
                     applySubtitleStyle(currentSize, currentColor, currentPosition, true)
                 }
                 override fun onStartTrackingTouch(bar: SeekBar?) {}
@@ -1476,7 +1476,7 @@ class PlayerActivity : AppCompatActivity() {
             })
         })
         val positionLabel = TextView(this).apply {
-            text = "Position: $currentPosition%"
+            text = LanguageManager.translate(this@PlayerActivity, "Position: $currentPosition%")
             textSize = 13f
             setTextColor(palette.text)
             setPadding(0, dpPlayer(10), 0, 0)
@@ -1491,7 +1491,7 @@ class PlayerActivity : AppCompatActivity() {
                 override fun onProgressChanged(bar: SeekBar?, value: Int, fromUser: Boolean) {
                     if (!fromUser) return
                     currentPosition = value
-                    positionLabel.text = "Position: $currentPosition%"
+                    positionLabel.text = LanguageManager.translate(this@PlayerActivity, "Position: $currentPosition%")
                     applySubtitleStyle(currentSize, currentColor, currentPosition, true)
                 }
                 override fun onStartTrackingTouch(bar: SeekBar?) {}
@@ -1580,7 +1580,7 @@ class PlayerActivity : AppCompatActivity() {
             supported.add(false)
         }
         AlertDialog.Builder(this)
-            .setTitle("Current subtitles")
+            .setTitle(LanguageManager.translate(this@PlayerActivity, "Current subtitles"))
             .setSingleChoiceItems(choices.toTypedArray(), selectedChoice) { dialog, which ->
                 if (which > 0 && !supported.getOrElse(which) { false }) {
                     android.widget.Toast.makeText(this, "This subtitle format is not supported on this device.", android.widget.Toast.LENGTH_SHORT).show()
@@ -1601,7 +1601,7 @@ class PlayerActivity : AppCompatActivity() {
                     }
                 }
                 if (which == 0) {
-                    captionLabel.text = ""
+                    captionLabel.text = LanguageManager.translate(this@PlayerActivity, "")
                     captionLabel.visibility = View.GONE
                 }
                 currentSubtitleValueLabel?.text = if (which == 0) "None" else choices[which].removeSuffix(" (unsupported)")
@@ -1627,7 +1627,7 @@ class PlayerActivity : AppCompatActivity() {
         }
         fun close() { commitDelayValue(); (card.parent as? android.view.ViewGroup)?.removeView(card) }
         val minus = TextView(this).apply {
-            text = "−"; textSize = 21f; typeface = Typeface.DEFAULT_BOLD
+            text = LanguageManager.translate(this@PlayerActivity, "−"); textSize = 21f; typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER; setTextColor(android.graphics.Color.WHITE)
             background = android.graphics.drawable.GradientDrawable().apply {
                 setColor(0xFFFF5700.toInt()); cornerRadius = dpPlayer(5).toFloat()
@@ -1657,14 +1657,14 @@ class PlayerActivity : AppCompatActivity() {
             })
         }
         val plus = TextView(this).apply {
-            text = "+"; textSize = 21f; typeface = Typeface.DEFAULT_BOLD
+            text = LanguageManager.translate(this@PlayerActivity, "+"); textSize = 21f; typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER; setTextColor(android.graphics.Color.WHITE)
             background = android.graphics.drawable.GradientDrawable().apply {
                 setColor(0xFFFF5700.toInt()); cornerRadius = dpPlayer(5).toFloat()
             }
         }
         val closeButton = TextView(this).apply {
-            text = "×"; textSize = 19f; gravity = Gravity.CENTER
+            text = LanguageManager.translate(this@PlayerActivity, "×"); textSize = 19f; gravity = Gravity.CENTER
             setTextColor(0xFFCCCCCC.toInt()); contentDescription = "Close subtitle delay"
             setOnClickListener { close() }
         }
@@ -2119,7 +2119,7 @@ class PlayerActivity : AppCompatActivity() {
         val options = arrayOf("Play next video", "Repeat current video", "Stop and return to list")
         val prefs = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
         val selected = prefs.getInt("playback_end_behavior", 0).coerceIn(0, 2)
-        AlertDialog.Builder(this).setTitle("When this video ends")
+        AlertDialog.Builder(this).setTitle(LanguageManager.translate(this@PlayerActivity, "When this video ends"))
             .setSingleChoiceItems(options, selected) { dialog, which ->
                 prefs.edit().putInt("playback_end_behavior", which).apply()
                 applyEndBehavior(true)
