@@ -51,9 +51,12 @@ class PlayerActivity : AppCompatActivity() {
     private var externalSubtitleName: String? = null
     private var subtitleDelayMs = 0L
     private var subtitlePositionPercent = 18
+    private lateinit var portraitActionRow: LinearLayout
+    private lateinit var landscapeActions: LinearLayout
     private var autoEmbeddedSubtitleApplied = false
     private var pendingSubtitleCue: Runnable? = null
     private fun subtitleKey(uri: Uri) = "external_subtitle_" + uri.toString()
+    private fun embeddedSubtitleKey(uri: Uri) = "embedded_subtitles_" + uri.toString()
     private fun savedSubtitleUri(uri: Uri): Uri? = subtitlePrefs().getString(subtitleKey(uri), null)?.let { runCatching { Uri.parse(it) }.getOrNull() }
     private fun mediaItemFor(uri: Uri): MediaItem {
         val builder = MediaItem.Builder().setUri(uri)
@@ -522,7 +525,7 @@ class PlayerActivity : AppCompatActivity() {
         titleRow.addView(videoTitle, LinearLayout.LayoutParams(0, -2, 1f))
         playerHeader.addView(titleRow, LinearLayout.LayoutParams(-1, -2))
 
-        val actionRow = LinearLayout(this).apply {
+        portraitActionRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dpPlayer(38), dpPlayer(4), 0, dpPlayer(2))
@@ -540,7 +543,7 @@ class PlayerActivity : AppCompatActivity() {
                 }
             }
         }
-        actionRow.addView(orientationIcon, LinearLayout.LayoutParams(dpPlayer(44), dpPlayer(42)))
+        portraitActionRow.addView(orientationIcon, LinearLayout.LayoutParams(dpPlayer(44), dpPlayer(42)))
         val subtitleButton = TextView(this).apply {
             text = "CC"
             textSize = 15f
@@ -555,7 +558,7 @@ class PlayerActivity : AppCompatActivity() {
             }
             setOnClickListener { showSubtitleCustomization() }
         }
-        actionRow.addView(subtitleButton, LinearLayout.LayoutParams(dpPlayer(46), dpPlayer(36)).apply {
+        portraitActionRow.addView(subtitleButton, LinearLayout.LayoutParams(dpPlayer(46), dpPlayer(36)).apply {
             marginStart = dpPlayer(12)
         })
         val fitButton = TextView(this).apply {
@@ -572,10 +575,10 @@ class PlayerActivity : AppCompatActivity() {
             setOnClickListener { handleAspectButtonTap() }
             setOnLongClickListener { showAspectRatioMenu(); true }
         }
-        actionRow.addView(fitButton, LinearLayout.LayoutParams(dpPlayer(46), dpPlayer(36)).apply {
+        portraitActionRow.addView(fitButton, LinearLayout.LayoutParams(dpPlayer(46), dpPlayer(36)).apply {
             marginStart = dpPlayer(12)
         })
-        playerHeader.addView(actionRow, LinearLayout.LayoutParams(-1, -2))
+        playerHeader.addView(portraitActionRow, LinearLayout.LayoutParams(-1, -2))
         rootLayout.addView(playerHeader, LinearLayout.LayoutParams(-1, -2))
         aspectModeName = if (videoSettings.getBoolean("remember_aspect", true))
             videoSettings.getString("last_aspect_name", "Fit") ?: "Fit" else "Fit"
@@ -678,7 +681,7 @@ class PlayerActivity : AppCompatActivity() {
             setTextColor(android.graphics.Color.WHITE)
             gravity = Gravity.CENTER_VERTICAL
         }, LinearLayout.LayoutParams(0, -2, 1f))
-        val landscapeActions = LinearLayout(this).apply {
+        landscapeActions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
@@ -805,6 +808,36 @@ class PlayerActivity : AppCompatActivity() {
             }
         }
         playbackArea.addView(captionLabel, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+        // Move Media3's native subtitle renderer outside PlayerView so aspect-ratio
+        // changes cannot clip embedded or external subtitles to the video surface.
+        playerView.subtitleView?.let { subtitleView ->
+            (subtitleView.parent as? android.view.ViewGroup)?.removeView(subtitleView)
+            subtitleView.visibility = View.VISIBLE
+            playbackArea.addView(subtitleView, FrameLayout.LayoutParams(-1, -1))
+            subtitleView.setOnTouchListener { view, event ->
+                val height = playbackArea.height.toFloat().coerceAtLeast(1f)
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        val threshold = (1f - subtitlePositionPercent / 100f - 0.22f).coerceIn(0f, 0.78f)
+                        if (event.y / height < threshold) return@setOnTouchListener false
+                        view.tag = floatArrayOf(event.rawY, subtitlePositionPercent.toFloat())
+                        true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val start = view.tag as? FloatArray ?: return@setOnTouchListener false
+                        subtitlePositionPercent = (start[1] + (event.rawY - start[0]) / height * 100f).toInt().coerceIn(0, 85)
+                        applySubtitleStyle(
+                            if (subtitleRemembered()) subtitlePrefs().getFloat("subtitle_size", 22f) else 22f,
+                            if (subtitleRemembered()) subtitlePrefs().getInt("subtitle_color", android.graphics.Color.WHITE) else android.graphics.Color.WHITE,
+                            subtitlePositionPercent, true
+                        )
+                        true
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> true
+                    else -> false
+                }
+            }
+        }
         subtitleDock.visibility = View.GONE
         playbackContainer.addView(subtitleDock, LinearLayout.LayoutParams(-1, 0))
         rootLayout.addView(playbackContainer, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -916,9 +949,8 @@ class PlayerActivity : AppCompatActivity() {
         audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         gestureBrightness = currentBrightness()
         setContentView(rootLayout)
-        // Captions live in the playbackArea overlay so aspect-ratio changes
-        // cannot clip them to the resized video surface.
-        playerView.subtitleView?.visibility = View.GONE
+        // SubtitleView is hosted by playbackArea, outside the resized video frame.
+        playerView.subtitleView?.visibility = View.VISIBLE
         window.statusBarColor = palette.background
         window.navigationBarColor = palette.background
         updateSystemBars()
@@ -946,14 +978,14 @@ class PlayerActivity : AppCompatActivity() {
                 .build()
             it.addListener(object : Player.Listener {
                 override fun onCues(cueGroup: CueGroup) {
-                    // One overlay handles both embedded and external tracks.
-                    val lines = cueGroup.cues.mapNotNull { cue ->
-                        cue.text?.toString()?.takeIf { it.isNotBlank() }
-                    }
-                    captionLabel.text = lines.joinToString("\n")
-                    captionLabel.visibility = if (captionLabel.text.isNullOrBlank()) View.GONE else View.VISIBLE
+                    // PlayerView forwards embedded and external cues to its native SubtitleView.
+                    captionLabel.text = ""
+                    captionLabel.visibility = View.GONE
                 }
                 override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+                    if (tracks.groups.any { it.type == C.TRACK_TYPE_TEXT && it.length > 0 }) {
+                        subtitlePrefs().edit().putBoolean(embeddedSubtitleKey(Uri.parse(videoKey)), true).apply()
+                    }
                     playbackArea.post { autoSelectFirstEmbeddedSubtitle() }
                 }
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -1162,18 +1194,22 @@ class PlayerActivity : AppCompatActivity() {
     private fun subtitleRemembered(): Boolean = subtitlePrefs().getBoolean("remember_subtitles", true)
 
     private fun applySubtitleStyle(size: Float, color: Int, position: Int, save: Boolean) {
-        // Embedded and external cues share this overlay, outside the resized video view.
-        playerView.subtitleView?.visibility = View.GONE
+        // Style Media3's actual renderer for both embedded MKV and external SRT.
         subtitlePositionPercent = position.coerceIn(0, 85)
-        captionLabel.apply {
-            textSize = size
-            setTextColor(color)
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            setShadowLayer(dpPlayer(3).toFloat(), 0f, dpPlayer(1).toFloat(), android.graphics.Color.BLACK)
-            translationY = -(playbackArea.height.toFloat() * subtitlePositionPercent / 100f)
-            visibility = if (text.isNullOrBlank()) View.GONE else View.VISIBLE
+        playerView.subtitleView?.apply {
+            visibility = View.VISIBLE
+            setFixedTextSize(TypedValue.COMPLEX_UNIT_SP, size)
+            setStyle(CaptionStyleCompat(
+                color,
+                android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.TRANSPARENT,
+                CaptionStyleCompat.EDGE_TYPE_OUTLINE,
+                android.graphics.Color.BLACK,
+                Typeface.DEFAULT_BOLD
+            ))
+            setBottomPaddingFraction(subtitlePositionPercent / 100f)
         }
+        captionLabel.visibility = View.GONE
         if (save && subtitleRemembered()) {
             subtitlePrefs().edit().putFloat("subtitle_size", size).putInt("subtitle_color", color)
                 .putInt("subtitle_position", subtitlePositionPercent).apply()
@@ -1198,11 +1234,15 @@ class PlayerActivity : AppCompatActivity() {
         val wasHeaderVisible = landscapeHeader.visibility == View.VISIBLE
         val wasControlsVisible = bottomControls.visibility == View.VISIBLE
         val wasPlayerHeaderVisible = playerHeader.visibility == View.VISIBLE
+        val wasPortraitActionsVisible = portraitActionRow.visibility == View.VISIBLE
+        val wasLandscapeActionsVisible = landscapeActions.visibility == View.VISIBLE
         fun removePanel() {
             (panel.parent as? android.view.ViewGroup)?.removeView(panel)
             landscapeHeader.visibility = if (wasHeaderVisible) View.VISIBLE else View.GONE
+            landscapeActions.visibility = if (wasLandscapeActionsVisible) View.VISIBLE else View.GONE
             bottomControls.visibility = if (wasControlsVisible) View.VISIBLE else View.GONE
             playerHeader.visibility = if (wasPlayerHeaderVisible) View.VISIBLE else View.GONE
+            portraitActionRow.visibility = if (wasPortraitActionsVisible) View.VISIBLE else View.GONE
             if (isLandscapeNow() && (wasHeaderVisible || wasControlsVisible)) scheduleControlsHide()
         }
         val header = LinearLayout(this).apply {
@@ -1344,8 +1384,11 @@ class PlayerActivity : AppCompatActivity() {
                 false
             }
         }
-        playerHeader.visibility = View.GONE
-        landscapeHeader.visibility = View.GONE
+        // Keep the title/back row visible while hiding playback action buttons.
+        playerHeader.visibility = View.VISIBLE
+        portraitActionRow.visibility = View.GONE
+        landscapeHeader.visibility = View.VISIBLE
+        landscapeActions.visibility = View.GONE
         bottomControls.visibility = View.GONE
         playbackArea.findViewWithTag<View>("subtitle_delay_controller")?.let { (it.parent as? android.view.ViewGroup)?.removeView(it) }
         if (isLandscapeNow()) {
