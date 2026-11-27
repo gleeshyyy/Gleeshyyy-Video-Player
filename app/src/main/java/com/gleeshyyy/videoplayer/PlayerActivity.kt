@@ -55,7 +55,7 @@ class PlayerActivity : AppCompatActivity() {
     private var externalSubtitleDragStartPosition = 18f
     private var externalSubtitleDragging = false
     private var subtitleSizeSp = 22f
-    private var subtitleColor = android.graphics.Color.WHITE
+    private var subtitleColor = 0xFFD0D0D0.toInt()
     private lateinit var portraitActionRow: LinearLayout
     private lateinit var landscapeActions: LinearLayout
     private var autoEmbeddedSubtitleApplied = false
@@ -459,6 +459,7 @@ class PlayerActivity : AppCompatActivity() {
     private var lastGestureY = 0f
     private var gestureBrightness = 0.5f
     private var longPressSpeedActive = false
+    private var longPressOriginalSpeed = 1.0f
     private var longPressSpeed = 2.0f
     private var seekIntervalMs = 10_000L
     private val pendingSeekHandler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -488,6 +489,8 @@ class PlayerActivity : AppCompatActivity() {
         videoKey = uri.toString()
         val videoSettings = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
         longPressSpeed = videoSettings.getFloat("long_press_speed", 2.0f)
+        showingRemainingTime = videoSettings.getBoolean("show_remaining_duration", false)
+        subtitleColor = loadRememberedSubtitleColor()
         seekIntervalMs = videoSettings.getInt("seek_interval", 10).coerceIn(3, 60) * 1000L
         longPressVibrator = getSystemService(VIBRATOR_SERVICE) as? android.os.Vibrator
         if (videoSettings.getBoolean("remember_orientation", true) && videoSettings.contains("last_orientation")) {
@@ -646,9 +649,7 @@ class PlayerActivity : AppCompatActivity() {
                         else longPressVibrator?.vibrate(35)
                     } catch (_: Exception) { }
                 }
-                player?.setPlaybackSpeed(longPressSpeed)
-                longPressSpeedActive = true
-                showGestureFeedback("${longPressSpeed.toInt()}× playing…", 100, true)
+                activateTemporaryLongPressSpeed()
             }
         })
         gestureLayer = View(this).apply {
@@ -890,7 +891,12 @@ class PlayerActivity : AppCompatActivity() {
             text = "0:00"; textSize = 11f; setTextColor(palette.text)
             gravity = Gravity.END
             contentDescription = "Tap to switch between total and remaining time"
-            setOnClickListener { showingRemainingTime = !showingRemainingTime; progressUpdater.run() }
+            setOnClickListener {
+                showingRemainingTime = !showingRemainingTime
+                getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).edit()
+                    .putBoolean("show_remaining_duration", showingRemainingTime).apply()
+                progressUpdater.run()
+            }
         }
         timeRow.addView(currentTimeLabel, LinearLayout.LayoutParams(0, -2, 1f))
         timeRow.addView(durationTimeLabel)
@@ -1021,7 +1027,7 @@ class PlayerActivity : AppCompatActivity() {
             progressUpdater.run()
             applySubtitleStyle(
                 if (subtitleRemembered()) subtitlePrefs().getFloat("subtitle_size", 22f) else 22f,
-                android.graphics.Color.WHITE,
+                subtitleColor,
                 if (subtitleRemembered()) subtitlePrefs().getInt("subtitle_position", 18) else 18,
                 false
             )
@@ -1058,7 +1064,13 @@ class PlayerActivity : AppCompatActivity() {
         subtitlePrefs().edit().putString(subtitleKey(videoUri), uri.toString()).apply()
         externalSubtitleUri = uri
         externalSubtitleName = displayName
-        applySubtitleStyle(subtitleSizeSp, subtitleColor, subtitlePositionPercent, false)
+        applySubtitleStyle(
+            if (subtitleRemembered()) subtitlePrefs().getFloat("subtitle_size", 22f) else 22f,
+            subtitleColor,
+            if (subtitleRemembered()) subtitlePrefs().getInt("subtitle_position", 18) else 18,
+            false
+        )
+        loadExternalSubtitleCues(uri)
         if (::subtitleFileLabel.isInitialized) {
             subtitleFileLabel.text = "Loaded: $displayName"
             subtitleFileLabel.setTextColor(palette.accent)
@@ -1189,6 +1201,15 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun subtitleRemembered(): Boolean = subtitlePrefs().getBoolean("remember_subtitles", true)
 
+    private fun loadRememberedSubtitleColor(): Int {
+        val prefs = subtitlePrefs()
+        val stored = if (prefs.contains("subtitle_color")) prefs.getInt("subtitle_color", 0xFFD0D0D0.toInt()) else 0xFFD0D0D0.toInt()
+        // Previous builds wrote white as an implicit default; migrate it to soft gray.
+        val resolved = if (stored == android.graphics.Color.WHITE) 0xFFD0D0D0.toInt() else stored
+        if (subtitleRemembered() && resolved != stored) prefs.edit().putInt("subtitle_color", resolved).apply()
+        return resolved
+    }
+
     private fun handleExternalSubtitleDrag(event: MotionEvent): Boolean {
         if (externalSubtitleUri == null) {
             externalSubtitleDragging = false
@@ -1254,6 +1275,7 @@ class PlayerActivity : AppCompatActivity() {
         val remembered = subtitleRemembered()
         var currentSize = if (remembered) prefs.getFloat("subtitle_size", 22f) else 22f
         var currentPosition = if (remembered) prefs.getInt("subtitle_position", 18) else 18
+        var currentColor = if (remembered) loadRememberedSubtitleColor() else 0xFFD0D0D0.toInt()
         subtitlePositionPercent = currentPosition.coerceIn(0, 85)
 
         val panel = LinearLayout(this).apply {
@@ -1368,7 +1390,7 @@ class PlayerActivity : AppCompatActivity() {
                     if (!fromUser) return
                     currentSize = 12f + value * 1.5f
                     sizeLabel.text = "Size: ${currentSize.toInt()} sp"
-                    applySubtitleStyle(currentSize, android.graphics.Color.WHITE, currentPosition, true)
+                    applySubtitleStyle(currentSize, currentColor, currentPosition, true)
                 }
                 override fun onStartTrackingTouch(bar: SeekBar?) {}
                 override fun onStopTrackingTouch(bar: SeekBar?) {}
@@ -1397,6 +1419,29 @@ class PlayerActivity : AppCompatActivity() {
                 override fun onStopTrackingTouch(bar: SeekBar?) {}
             })
         })
+
+        sectionLabel("SUBTITLE COLOR")
+        rowAction("Text color", when (currentColor) {
+            0xFFD0D0D0.toInt() -> "Soft gray"
+            android.graphics.Color.WHITE -> "White"
+            0xFFFFE082.toInt() -> "Warm yellow"
+            0xFFB3E5FC.toInt() -> "Light cyan"
+            else -> "Custom"
+        }) {
+            val names = arrayOf("Soft gray", "White", "Warm yellow", "Light cyan")
+            val colors = intArrayOf(0xFFD0D0D0.toInt(), android.graphics.Color.WHITE, 0xFFFFE082.toInt(), 0xFFB3E5FC.toInt())
+            AlertDialog.Builder(this).setTitle("Subtitle color")
+                .setSingleChoiceItems(names, colors.indexOf(currentColor).coerceAtLeast(0)) { dialog, which ->
+                    currentColor = colors[which]
+                    subtitleColor = currentColor
+                    applySubtitleStyle(currentSize, currentColor, currentPosition, true)
+                    dialog.dismiss()
+                    playbackArea.findViewWithTag<View>("subtitle_settings_panel")?.let { view ->
+                        (view.parent as? android.view.ViewGroup)?.removeView(view)
+                    }
+                    showSubtitleCustomization()
+                }.setNegativeButton("Cancel", null).show()
+        }
 
         sectionLabel("SUBTITLE DELAY")
         rowAction("Subtitle delay", String.format(java.util.Locale.US, "%+.1fs", subtitleDelayMs / 1000f)) {
@@ -1779,7 +1824,7 @@ class PlayerActivity : AppCompatActivity() {
                 }
                 gestureMode = 0
                 if (longPressSpeedActive) {
-                    player?.setPlaybackSpeed(1.0f)
+                    player?.setPlaybackSpeed(longPressOriginalSpeed)
                     longPressSpeedActive = false
                 }
                 if (completedMode != 0 || wasLongPress) hideGestureFeedbackSoon()
