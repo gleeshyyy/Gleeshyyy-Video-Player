@@ -545,7 +545,7 @@ class MainActivity : AppCompatActivity() {
             }
             searchHeader.addView(back, LinearLayout.LayoutParams(dp(56), dp(56)))
             val searchInput = android.widget.EditText(this).apply {
-                hint = "Search videos and folders"
+                hint = LanguageManager.translate(this@MainActivity, "Search videos and folders")
                 setSingleLine(true)
                 textSize = 16f
                 setTextColor(palette.text)
