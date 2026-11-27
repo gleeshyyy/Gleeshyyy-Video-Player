@@ -103,6 +103,15 @@ class MainActivity : AppCompatActivity() {
         ThemeManager.applySystemMode(this)
         sortMode = sortPrefs.getInt("sort_mode", 2).coerceIn(0, 2)
         sortAscending = sortPrefs.getBoolean("sort_ascending", false)
+        if (savedInstanceState != null) {
+            selectedTab = savedInstanceState.getInt("library_tab", 0)
+            selectedFolder = savedInstanceState.getString("library_folder")
+            searchPage = savedInstanceState.getBoolean("library_search_page", false)
+            searchQuery = savedInstanceState.getString("library_search_query", "")
+            displayedVideoLimit = savedInstanceState.getInt("library_video_limit", 40)
+        } else if (intent.getBooleanExtra("restore_library_context", false)) {
+            restoreLibraryContext(intent)
+        }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
@@ -128,6 +137,34 @@ class MainActivity : AppCompatActivity() {
             }
         })
         showVideoLibrary()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra("restore_library_context", false)) {
+            restoreLibraryContext(intent)
+            if (::libraryScroll.isInitialized) {
+                renderHome()
+                libraryScroll.post { libraryScroll.scrollTo(0, intent.getIntExtra("return_scroll_y", 0).coerceAtLeast(0)) }
+            }
+        }
+    }
+
+    private fun restoreLibraryContext(source: Intent) {
+        selectedFolder = source.getStringExtra("return_folder")
+        selectedTab = source.getIntExtra("return_tab", 0).coerceIn(0, 1)
+        searchPage = source.getBooleanExtra("return_search_page", false)
+        searchQuery = source.getStringExtra("return_search_query") ?: ""
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putInt("library_tab", selectedTab)
+        outState.putString("library_folder", selectedFolder)
+        outState.putBoolean("library_search_page", searchPage)
+        outState.putString("library_search_query", searchQuery)
+        outState.putInt("library_video_limit", displayedVideoLimit)
+        super.onSaveInstanceState(outState)
     }
 
     override fun onResume() {
@@ -1106,6 +1143,11 @@ class MainActivity : AppCompatActivity() {
             putParcelableArrayListExtra("playlist_uris", ArrayList(ordered.map { it.uri }))
             putStringArrayListExtra("playlist_titles", ArrayList(ordered.map { it.title }))
             putExtra("playlist_index", safeIndex)
+            putExtra("return_folder", selectedFolder)
+            putExtra("return_tab", selectedTab)
+            putExtra("return_search_page", searchPage)
+            putExtra("return_search_query", searchQuery)
+            putExtra("return_scroll_y", if (::libraryScroll.isInitialized) libraryScroll.scrollY else 0)
         })
     }
 
