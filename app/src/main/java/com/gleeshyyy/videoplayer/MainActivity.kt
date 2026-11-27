@@ -1293,7 +1293,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun text(value: String, size: Float, color: Int, bold: Boolean = false) =
         TextView(this).apply {
-            text = value
+            text = LanguageManager.translate(this@MainActivity, value)
             textSize = size
             setTextColor(color)
             if (bold) setTypeface(typeface, android.graphics.Typeface.BOLD)
