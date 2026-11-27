@@ -203,9 +203,9 @@ class SettingsActivity : AppCompatActivity() {
     private fun showVideo() {
         beginPage("Video", true)
         body.addView(label("PLAYBACK", 12f, palette.accent, true).apply { setPadding(0, dp(24), 0, dp(12)) })
-        addChoice("Controls auto-hide", "Choose how long player controls and the video title stay visible in portrait mode.", "controls_auto_hide",
-            listOf("5 seconds", "7 seconds", "10 seconds", "15 seconds", "30 seconds", "60 seconds", "Never hide"),
-            listOf("5000", "7000", "10000", "15000", "30000", "60000", "-1"),
+        addChoice("Controls auto-hide", "Choose how long player controls and the video title stay visible in portrait and landscape modes.", "controls_auto_hide",
+            listOf("3 seconds", "5 seconds", "7 seconds", "10 seconds", "15 seconds", "30 seconds", "60 seconds", "Never hide"),
+            listOf("3000", "5000", "7000", "10000", "15000", "30000", "60000", "-1"),
             prefs.getInt("controls_auto_hide", 7000).toString(), "7 seconds")
         addToggle("Remember aspect", "Keep the last selected video fit mode (FIT, ZOOM or FILL).", "remember_aspect", true)
         addToggle("Remember screen orientation", "Keep the last orientation selected in the player.", "remember_orientation", true)
