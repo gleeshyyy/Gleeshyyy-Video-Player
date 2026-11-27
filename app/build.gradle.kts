@@ -11,8 +11,24 @@ android {
         applicationId = "com.gleeshyyy.videoplayer"
         minSdk = 23
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
+    }
+
+    signingConfigs {
+        create("release") {
+            val storePath = System.getenv("RELEASE_STORE_FILE") ?: "release-keystore.jks"
+            storeFile = file(storePath)
+            storePassword = System.getenv("RELEASE_STORE_PASSWORD")
+            keyAlias = "gleeshplayer"
+            keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+        }
     }
 
     compileOptions {
