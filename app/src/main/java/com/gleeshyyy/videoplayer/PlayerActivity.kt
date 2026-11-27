@@ -133,7 +133,18 @@ class PlayerActivity : AppCompatActivity() {
     private var resumePosition = 0L
     private var resumePromptVisible = false
     private val controlsHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    private val hideControlsRunnable = Runnable { if (isLandscapeNow()) { bottomControls.visibility = View.GONE; landscapeHeader.visibility = View.GONE } }
+    private val hideControlsRunnable = Runnable {
+        if (!::bottomControls.isInitialized) return@Runnable
+        if (isLandscapeNow()) {
+            // Keep the existing landscape behavior unchanged.
+            bottomControls.visibility = View.GONE
+            landscapeHeader.visibility = View.GONE
+        } else {
+            // Hide title, CC, ratio, rotate and playback controls in portrait.
+            bottomControls.visibility = View.GONE
+            playerHeader.visibility = View.GONE
+        }
+    }
     private var videoIsLandscape = false
     private var videoKey: String = ""
     private val playbackSpeeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
@@ -1858,6 +1869,12 @@ class PlayerActivity : AppCompatActivity() {
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                if (!isLandscapeNow() && ::playerHeader.isInitialized &&
+                    playbackArea.findViewWithTag<View>("subtitle_settings_panel") == null) {
+                    playerHeader.visibility = View.VISIBLE
+                    bottomControls.visibility = View.VISIBLE
+                    scheduleControlsHide()
+                }
                 globalLongPressHandler.removeCallbacks(globalLongPressRunnable)
                 globalLongPressPending = isTouchOutsidePlaybackArea(event.rawX, event.rawY)
                 globalLongPressTriggered = false
@@ -1869,12 +1886,18 @@ class PlayerActivity : AppCompatActivity() {
                         android.view.ViewConfiguration.getLongPressTimeout().toLong())
                 }
             }
-            MotionEvent.ACTION_MOVE -> if (globalLongPressPending) {
-                val slop = android.view.ViewConfiguration.get(this).scaledTouchSlop
-                if (kotlin.math.abs(event.x - globalLongPressDownX) > slop ||
-                    kotlin.math.abs(event.y - globalLongPressDownY) > slop) {
-                    globalLongPressPending = false
-                    globalLongPressHandler.removeCallbacks(globalLongPressRunnable)
+            MotionEvent.ACTION_MOVE -> {
+                if (!isLandscapeNow() && ::playerHeader.isInitialized &&
+                    playbackArea.findViewWithTag<View>("subtitle_settings_panel") == null) {
+                    scheduleControlsHide()
+                }
+                if (globalLongPressPending) {
+                    val slop = android.view.ViewConfiguration.get(this).scaledTouchSlop
+                    if (kotlin.math.abs(event.x - globalLongPressDownX) > slop ||
+                        kotlin.math.abs(event.y - globalLongPressDownY) > slop) {
+                        globalLongPressPending = false
+                        globalLongPressHandler.removeCallbacks(globalLongPressRunnable)
+                    }
                 }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
@@ -2082,12 +2105,19 @@ class PlayerActivity : AppCompatActivity() {
             endModeButton.setTextColor(palette.accent)
             rootLayout.addView(bottomControls, LinearLayout.LayoutParams(-1, -2))
             bottomControls.visibility = View.VISIBLE
+            playerHeader.visibility = View.VISIBLE
+            scheduleControlsHide()
         }
     }
 
     private fun scheduleControlsHide() {
         controlsHandler.removeCallbacks(hideControlsRunnable)
-        if (isLandscapeNow()) controlsHandler.postDelayed(hideControlsRunnable, 5000L)
+        if (isLandscapeNow()) {
+            // Preserve the existing landscape timeout.
+            controlsHandler.postDelayed(hideControlsRunnable, 5000L)
+        } else if (playbackArea.findViewWithTag<View>("subtitle_settings_panel") == null) {
+            controlsHandler.postDelayed(hideControlsRunnable, 7000L)
+        }
     }
 
     private fun finishToLibrary() {
