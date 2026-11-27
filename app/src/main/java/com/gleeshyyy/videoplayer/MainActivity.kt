@@ -277,7 +277,7 @@ class MainActivity : AppCompatActivity() {
                     setTextColor(tint)
                 }, LinearLayout.LayoutParams(-1, dp(27)))
                 addView(TextView(this@MainActivity).apply {
-                    text = label
+                    text = LanguageManager.translate(this@MainActivity, label)
                     textSize = 11f
                     gravity = Gravity.CENTER
                     setTextColor(tint)
