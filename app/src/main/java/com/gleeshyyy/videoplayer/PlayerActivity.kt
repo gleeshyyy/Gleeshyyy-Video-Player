@@ -50,6 +50,7 @@ class PlayerActivity : AppCompatActivity() {
     }
     private var externalSubtitleName: String? = null
     private var subtitleDelayMs = 0L
+    private var subtitlePositionPercent = 18
     private var autoEmbeddedSubtitleApplied = false
     private var pendingSubtitleCue: Runnable? = null
     private fun subtitleKey(uri: Uri) = "external_subtitle_" + uri.toString()
@@ -777,7 +778,13 @@ class PlayerActivity : AppCompatActivity() {
                     MotionEvent.ACTION_MOVE -> {
                         val values = view.tag as? FloatArray
                         if (values != null) {
-                            view.translationY = (values[1] + event.rawY - values[0]).coerceIn(-playbackArea.height.toFloat(), 0f)
+                            view.translationY = (values[1] + event.rawY - values[0])
+                                .coerceIn(-playbackArea.height.toFloat() * 0.85f, 0f)
+                            val height = playbackArea.height.toFloat().coerceAtLeast(1f)
+                            subtitlePositionPercent = ((-view.translationY / height) * 100f).toInt().coerceIn(0, 85)
+                            if (subtitleRemembered()) {
+                                subtitlePrefs().edit().putInt("subtitle_position", subtitlePositionPercent).apply()
+                            }
                         }
                         true
                     }
@@ -898,7 +905,9 @@ class PlayerActivity : AppCompatActivity() {
         audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         gestureBrightness = currentBrightness()
         setContentView(rootLayout)
-        playerView.subtitleView?.visibility = View.VISIBLE
+        // Captions live in the playbackArea overlay so aspect-ratio changes
+        // cannot clip them to the resized video surface.
+        playerView.subtitleView?.visibility = View.GONE
         window.statusBarColor = palette.background
         window.navigationBarColor = palette.background
         updateSystemBars()
@@ -926,11 +935,12 @@ class PlayerActivity : AppCompatActivity() {
                 .build()
             it.addListener(object : Player.Listener {
                 override fun onCues(cueGroup: CueGroup) {
-                    // Media3 PlayerView's SubtitleView renders embedded and external cues.
-                    // Keep the legacy custom overlay hidden to avoid duplicate captions.
-                    pendingSubtitleCue?.let { captionLabel.removeCallbacks(it) }
-                    captionLabel.text = ""
-                    captionLabel.visibility = View.GONE
+                    // One overlay handles both embedded and external tracks.
+                    val lines = cueGroup.cues.mapNotNull { cue ->
+                        cue.text?.toString()?.takeIf { it.isNotBlank() }
+                    }
+                    captionLabel.text = lines.joinToString("\n")
+                    captionLabel.visibility = if (captionLabel.text.isNullOrBlank()) View.GONE else View.VISIBLE
                 }
                 override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
                     playbackArea.post { autoSelectFirstEmbeddedSubtitle() }
@@ -1141,24 +1151,21 @@ class PlayerActivity : AppCompatActivity() {
     private fun subtitleRemembered(): Boolean = subtitlePrefs().getBoolean("remember_subtitles", true)
 
     private fun applySubtitleStyle(size: Float, color: Int, position: Int, save: Boolean) {
-        // Apply subtitle preferences to Media3's native renderer, not the hidden legacy overlay.
-        playerView.subtitleView?.apply {
-            visibility = View.VISIBLE
-            setFixedTextSize(TypedValue.COMPLEX_UNIT_SP, size)
-            setStyle(CaptionStyleCompat(
-                color,
-                android.graphics.Color.TRANSPARENT,
-                android.graphics.Color.TRANSPARENT,
-                CaptionStyleCompat.EDGE_TYPE_OUTLINE,
-                android.graphics.Color.BLACK,
-                Typeface.DEFAULT_BOLD
-            ))
-            setBottomPaddingFraction(position.coerceIn(0, 100) / 100f)
+        // Embedded and external cues share this overlay, outside the resized video view.
+        playerView.subtitleView?.visibility = View.GONE
+        subtitlePositionPercent = position.coerceIn(0, 85)
+        captionLabel.apply {
+            textSize = size
+            setTextColor(color)
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setShadowLayer(dpPlayer(3).toFloat(), 0f, dpPlayer(1).toFloat(), android.graphics.Color.BLACK)
+            translationY = -(playbackArea.height.toFloat() * subtitlePositionPercent / 100f)
+            visibility = if (text.isNullOrBlank()) View.GONE else View.VISIBLE
         }
-        captionLabel.visibility = View.GONE
         if (save && subtitleRemembered()) {
             subtitlePrefs().edit().putFloat("subtitle_size", size).putInt("subtitle_color", color)
-                .putInt("subtitle_position", position).apply()
+                .putInt("subtitle_position", subtitlePositionPercent).apply()
         }
     }
 
@@ -1168,6 +1175,7 @@ class PlayerActivity : AppCompatActivity() {
         val remembered = subtitleRemembered()
         var currentSize = if (remembered) prefs.getFloat("subtitle_size", 22f) else 22f
         var currentPosition = if (remembered) prefs.getInt("subtitle_position", 18) else 18
+        subtitlePositionPercent = currentPosition.coerceIn(0, 85)
 
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -1401,7 +1409,10 @@ class PlayerActivity : AppCompatActivity() {
                         return@setSingleChoiceItems
                     }
                 }
-                captionLabel.visibility = if (which == 0) View.GONE else View.VISIBLE
+                if (which == 0) {
+                    captionLabel.text = ""
+                    captionLabel.visibility = View.GONE
+                }
                 currentSubtitleValueLabel?.text = if (which == 0) "None" else choices[which].removeSuffix(" (unsupported)")
                 dialog.dismiss()
             }
