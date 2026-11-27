@@ -12,8 +12,14 @@ object LanguageManager {
         Language("हिन्दी", "hi"), Language("తెలుగు", "te"), Language("தமிழ்", "ta")
     )
 
-    private val dictionaries: Map<String, Map<String, String>> = mapOf(
-        "fr" to mapOf(
+    private val dictionaries: Map<String, Map<String, String>> by lazy {
+        mapOf(
+            "fr" to wordsFR(), "es" to wordsES(), "sw" to wordsSW(), "ru" to wordsRU(),
+            "zh" to wordsZH(), "hi" to wordsHI(), "te" to wordsTE(), "ta" to wordsTA()
+        )
+    }
+
+    private fun wordsFR(): Map<String, String> = mapOf(
             "Back to folders" to "Retour aux dossiers",
             "Back to all folders" to "Retour à tous les dossiers",
             "Search videos and folders" to "Rechercher des vidéos et des dossiers",
@@ -133,8 +139,9 @@ object LanguageManager {
             "Embedded subtitles" to "Sous-titres intégrés",
             "Subtitle track is not available yet. Reopen the list after loading completes." to "La piste de sous-titres n’est pas encore disponible. Rouvrez la liste après le chargement.",
             "Please choose an .srt subtitle file" to "Veuillez choisir un fichier de sous-titres .srt"
-        ),
-        "es" to mapOf(
+        )
+
+    private fun wordsES(): Map<String, String> = mapOf(
             "Back to folders" to "Volver a las carpetas",
             "Back to all folders" to "Volver a todas las carpetas",
             "Search videos and folders" to "Buscar vídeos y carpetas",
@@ -254,8 +261,9 @@ object LanguageManager {
             "Embedded subtitles" to "Subtítulos integrados",
             "Subtitle track is not available yet. Reopen the list after loading completes." to "La pista de subtítulos aún no está disponible. Vuelve a abrir la lista cuando termine de cargar.",
             "Please choose an .srt subtitle file" to "Elige un archivo de subtítulos .srt"
-        ),
-        "sw" to mapOf(
+        )
+
+    private fun wordsSW(): Map<String, String> = mapOf(
             "Back to folders" to "Rudi kwenye folda",
             "Back to all folders" to "Rudi kwenye folda zote",
             "Search videos and folders" to "Tafuta video na folda",
@@ -375,8 +383,9 @@ object LanguageManager {
             "Embedded subtitles" to "Manukuu yaliyopachikwa",
             "Subtitle track is not available yet. Reopen the list after loading completes." to "Wimbo wa manukuu haupatikani bado. Fungua orodha tena baada ya kupakia kukamilika.",
             "Please choose an .srt subtitle file" to "Tafadhali chagua faili la manukuu la .srt"
-        ),
-        "ru" to mapOf(
+        )
+
+    private fun wordsRU(): Map<String, String> = mapOf(
             "Back to folders" to "Назад к папкам",
             "Back to all folders" to "Назад ко всем папкам",
             "Search videos and folders" to "Поиск видео и папок",
@@ -496,8 +505,9 @@ object LanguageManager {
             "Embedded subtitles" to "Встроенные субтитры",
             "Subtitle track is not available yet. Reopen the list after loading completes." to "Дорожка субтитров пока недоступна. Откройте список снова после завершения загрузки.",
             "Please choose an .srt subtitle file" to "Выберите файл субтитров .srt"
-        ),
-        "zh" to mapOf(
+        )
+
+    private fun wordsZH(): Map<String, String> = mapOf(
             "Back to folders" to "返回文件夹",
             "Back to all folders" to "返回所有文件夹",
             "Search videos and folders" to "搜索视频和文件夹",
@@ -617,8 +627,9 @@ object LanguageManager {
             "Embedded subtitles" to "内嵌字幕",
             "Subtitle track is not available yet. Reopen the list after loading completes." to "字幕轨道暂不可用。加载完成后请重新打开列表。",
             "Please choose an .srt subtitle file" to "请选择 .srt 字幕文件"
-        ),
-        "hi" to mapOf(
+        )
+
+    private fun wordsHI(): Map<String, String> = mapOf(
             "Back to folders" to "फ़ोल्डर पर वापस जाएँ",
             "Back to all folders" to "सभी फ़ोल्डर पर वापस जाएँ",
             "Search videos and folders" to "वीडियो और फ़ोल्डर खोजें",
@@ -738,8 +749,9 @@ object LanguageManager {
             "Embedded subtitles" to "एम्बेडेड उपशीर्षक",
             "Subtitle track is not available yet. Reopen the list after loading completes." to "उपशीर्षक ट्रैक अभी उपलब्ध नहीं है। लोडिंग पूरी होने पर सूची फिर खोलें।",
             "Please choose an .srt subtitle file" to "कृपया .srt उपशीर्षक फ़ाइल चुनें"
-        ),
-        "te" to mapOf(
+        )
+
+    private fun wordsTE(): Map<String, String> = mapOf(
             "Back to folders" to "ఫోల్డర్‌లకు తిరిగి వెళ్లు",
             "Back to all folders" to "అన్ని ఫోల్డర్‌లకు తిరిగి వెళ్లు",
             "Search videos and folders" to "వీడియోలు మరియు ఫోల్డర్‌లను వెతుకు",
@@ -859,8 +871,9 @@ object LanguageManager {
             "Embedded subtitles" to "ఎంబెడ్ చేసిన ఉపశీర్షికలు",
             "Subtitle track is not available yet. Reopen the list after loading completes." to "ఉపశీర్షిక ట్రాక్ ఇంకా అందుబాటులో లేదు. లోడ్ పూర్తయ్యాక జాబితాను మళ్లీ తెరవండి.",
             "Please choose an .srt subtitle file" to "దయచేసి .srt ఉపశీర్షిక ఫైల్‌ను ఎంచుకోండి"
-        ),
-        "ta" to mapOf(
+        )
+
+    private fun wordsTA(): Map<String, String> = mapOf(
             "Back to folders" to "கோப்புறைகளுக்குத் திரும்பு",
             "Back to all folders" to "அனைத்து கோப்புறைகளுக்கும் திரும்பு",
             "Search videos and folders" to "வீடியோக்கள் மற்றும் கோப்புறைகளைத் தேடு",
@@ -981,7 +994,6 @@ object LanguageManager {
             "Subtitle track is not available yet. Reopen the list after loading completes." to "வசன தடம் இன்னும் கிடைக்கவில்லை. ஏற்றம் முடிந்ததும் பட்டியலை மீண்டும் திற.",
             "Please choose an .srt subtitle file" to "தயவுசெய்து .srt வசனக் கோப்பைத் தேர்ந்தெடு"
         )
-    )
 
     private val dynamicWords: Map<String, Map<String, String>> = mapOf(
         "fr" to mapOf("videos" to "vidéos", "matches" to "résultats", "Load more" to "Charger plus", "remaining" to "restants", "selected" to "sélectionnés", "Scanning your videos…" to "Analyse de vos vidéos…", "folders found" to "dossiers trouvés", "seconds" to "secondes", "Never hide" to "Ne jamais masquer"),
