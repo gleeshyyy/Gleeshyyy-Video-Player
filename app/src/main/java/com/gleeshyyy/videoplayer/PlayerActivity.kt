@@ -50,6 +50,23 @@ class PlayerActivity : AppCompatActivity() {
     }
     private var externalSubtitleName: String? = null
     private var subtitleDelayMs = 0L
+    private var subtitleDelayInput: android.widget.EditText? = null
+    private data class ExternalSubtitleCue(val startMs: Long, val endMs: Long, val text: String)
+    private var externalSubtitleCues: List<ExternalSubtitleCue> = emptyList()
+    private val subtitleCueHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val subtitleCueUpdater = object : Runnable {
+        override fun run() {
+            if (externalSubtitleUri == null || !::captionLabel.isInitialized) return
+            val position = player?.currentPosition ?: 0L
+            val activeText = externalSubtitleCues.asSequence()
+                .filter { position >= it.startMs + subtitleDelayMs && position < it.endMs + subtitleDelayMs }
+                .joinToString("\n") { it.text }
+            if (captionLabel.text.toString() != activeText) captionLabel.text = activeText
+            captionLabel.visibility = if (activeText.isBlank()) View.GONE else View.VISIBLE
+            subtitleCueHandler.removeCallbacks(this)
+            subtitleCueHandler.postDelayed(this, 80L)
+        }
+    }
     private var subtitlePositionPercent = 18
     private var externalSubtitleDragStartY = 0f
     private var externalSubtitleDragStartPosition = 18f
@@ -969,19 +986,10 @@ class PlayerActivity : AppCompatActivity() {
                         playerView.subtitleView?.visibility = View.VISIBLE
                         return
                     }
-                    // External SRT uses the draggable overlay, which sits above the gesture layer.
+                    // External SRT is rendered from parsed timestamps so delay can
+                    // shift cue starts and ends in either direction.
                     playerView.subtitleView?.visibility = View.GONE
-                    val line = cueGroup.cues.mapNotNull { cue ->
-                        cue.text?.toString()?.takeIf { it.isNotBlank() }
-                    }.joinToString("\n")
-                    pendingSubtitleCue?.let { captionLabel.removeCallbacks(it) }
-                    val update = Runnable {
-                        captionLabel.text = line
-                        captionLabel.visibility = if (line.isBlank()) View.GONE else View.VISIBLE
-                    }
-                    pendingSubtitleCue = update
-                    if (line.isBlank() || subtitleDelayMs <= 0L) update.run()
-                    else captionLabel.postDelayed(update, subtitleDelayMs)
+                    return
                 }
                 override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
                     if (tracks.groups.any { it.type == C.TRACK_TYPE_TEXT && it.length > 0 }) {
@@ -1022,6 +1030,7 @@ class PlayerActivity : AppCompatActivity() {
             it.setMediaItems(playlistUris.map { itemUri -> mediaItemFor(itemUri) }, playlistIndex, resumePosition)
             externalSubtitleUri = savedSubtitleUri(uri)
             externalSubtitleName = externalSubtitleUri?.let { queryDisplayName(it) }
+            externalSubtitleUri?.let { loadExternalSubtitleCues(it) }
             it.prepare()
             applyEndBehavior(false)
             progressUpdater.run()
@@ -1208,6 +1217,53 @@ class PlayerActivity : AppCompatActivity() {
         val resolved = if (stored == android.graphics.Color.WHITE) 0xFFD0D0D0.toInt() else stored
         if (subtitleRemembered() && resolved != stored) prefs.edit().putInt("subtitle_color", resolved).apply()
         return resolved
+    }
+
+    private fun loadExternalSubtitleCues(uri: Uri) {
+        subtitleCueHandler.removeCallbacks(subtitleCueUpdater)
+        externalSubtitleCues = emptyList()
+        captionLabel.text = ""
+        captionLabel.visibility = View.GONE
+        Thread {
+            val parsed = runCatching {
+                val raw = contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                    ?: throw IllegalStateException("Unable to read subtitle file")
+                val blocks = raw.removePrefix("\uFEFF").split(Regex("\\r?\\n\\s*\\r?\\n"))
+                val timestamp = Regex("(?:(\\d{1,2}):)?(\\d{2}):(\\d{2})[,.](\\d{3})")
+                fun parseTime(value: String): Long? {
+                    val match = timestamp.find(value) ?: return null
+                    val hours = match.groupValues[1].takeIf { it.isNotEmpty() }?.toLongOrNull() ?: 0L
+                    val minutes = match.groupValues[2].toLongOrNull() ?: return null
+                    val seconds = match.groupValues[3].toLongOrNull() ?: return null
+                    val millis = match.groupValues[4].toLongOrNull() ?: return null
+                    return ((hours * 60L + minutes) * 60L + seconds) * 1000L + millis
+                }
+                blocks.mapNotNull { block ->
+                    val lines = block.lines()
+                    val timeIndex = lines.indexOfFirst { it.contains("-->") }
+                    if (timeIndex < 0) return@mapNotNull null
+                    val times = lines[timeIndex].split("-->", limit = 2)
+                    if (times.size != 2) return@mapNotNull null
+                    val start = parseTime(times[0]) ?: return@mapNotNull null
+                    val end = parseTime(times[1]) ?: return@mapNotNull null
+                    val text = lines.drop(timeIndex + 1).joinToString("\\n")
+                        .replace(Regex("<[^>]*>"), "").trim()
+                    if (text.isBlank() || end <= start) null else ExternalSubtitleCue(start, end, text)
+                }.sortedBy { it.startMs }
+            }.getOrDefault(emptyList())
+            runOnUiThread {
+                if (externalSubtitleUri != uri || isFinishing || isDestroyed) return@runOnUiThread
+                externalSubtitleCues = parsed
+                subtitleCueHandler.removeCallbacks(subtitleCueUpdater)
+                subtitleCueHandler.post(subtitleCueUpdater)
+            }
+        }.start()
+    }
+
+    private fun refreshExternalSubtitleCueDisplay() {
+        if (externalSubtitleUri == null || externalSubtitleCues.isEmpty()) return
+        subtitleCueHandler.removeCallbacks(subtitleCueUpdater)
+        subtitleCueHandler.post(subtitleCueUpdater)
     }
 
     private fun handleExternalSubtitleDrag(event: MotionEvent): Boolean {
@@ -1589,13 +1645,9 @@ class PlayerActivity : AppCompatActivity() {
             background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
             contentDescription = "Editable subtitle delay in seconds"
             setOnFocusChangeListener { _, hasFocus ->
-                if (!hasFocus) {
-                    subtitleDelayMs = ((text?.toString()?.trim()?.toFloatOrNull() ?: 0f) * 1000f)
-                        .toLong().coerceIn(-10_000L, 10_000L)
-                    if (subtitleDelayMs == 0L) setText("0.0")
-                    else setText(String.format(java.util.Locale.US, "%.1f", subtitleDelayMs / 1000f))
-                }
+                if (!hasFocus) commitDelayValue()
             }
+            subtitleDelayInput = this
             addTextChangedListener(object : android.text.TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
@@ -1624,11 +1676,13 @@ class PlayerActivity : AppCompatActivity() {
             commitDelayValue()
             subtitleDelayMs = (subtitleDelayMs - 100L).coerceAtLeast(-10_000L)
             refreshValue()
+            refreshExternalSubtitleCueDisplay()
         }
         plus.setOnClickListener {
             commitDelayValue()
             subtitleDelayMs = (subtitleDelayMs + 100L).coerceAtMost(10_000L)
             refreshValue()
+            refreshExternalSubtitleCueDisplay()
         }
         card.addView(minus, LinearLayout.LayoutParams(dpPlayer(32), dpPlayer(32)))
         card.addView(value, LinearLayout.LayoutParams(dpPlayer(62), dpPlayer(32)))
@@ -1644,8 +1698,11 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun commitDelayValue() {
-        // The editable value is committed on focus loss; clearing it means normal timing.
-        if (subtitleDelayMs == 0L) pendingSubtitleCue?.let { captionLabel.removeCallbacks(it) }
+        val input = subtitleDelayInput
+        val parsed = input?.text?.toString()?.trim()?.toFloatOrNull()
+        if (parsed != null) subtitleDelayMs = (parsed * 1000f).toLong().coerceIn(-10_000L, 10_000L)
+        input?.setText(String.format(java.util.Locale.US, "%.1f", subtitleDelayMs / 1000f))
+        refreshExternalSubtitleCueDisplay()
     }
 
     private class SeekFeedbackOverlay(context: Context) : View(context) {
