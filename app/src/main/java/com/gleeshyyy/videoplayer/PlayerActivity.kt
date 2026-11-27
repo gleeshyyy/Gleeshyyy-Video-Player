@@ -2112,14 +2112,10 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun scheduleControlsHide() {
         controlsHandler.removeCallbacks(hideControlsRunnable)
-        if (isLandscapeNow()) {
-            // Preserve the existing landscape timeout.
-            controlsHandler.postDelayed(hideControlsRunnable, 5000L)
-        } else if (playbackArea.findViewWithTag<View>("subtitle_settings_panel") == null) {
-            val timeoutMs = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
-                .getInt("controls_auto_hide", 7000)
-            if (timeoutMs > 0) controlsHandler.postDelayed(hideControlsRunnable, timeoutMs.toLong())
-        }
+        if (playbackArea.findViewWithTag<View>("subtitle_settings_panel") != null) return
+        val timeoutMs = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+            .getInt("controls_auto_hide", 7000)
+        if (timeoutMs > 0) controlsHandler.postDelayed(hideControlsRunnable, timeoutMs.toLong())
     }
 
     private fun finishToLibrary() {
