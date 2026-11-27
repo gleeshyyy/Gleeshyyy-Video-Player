@@ -220,7 +220,7 @@ class PlayerActivity : AppCompatActivity() {
         titleRow.addView(TextView(this).apply {
             text = "×"; textSize = 26f; gravity = Gravity.CENTER
             setTextColor(android.graphics.Color.WHITE)
-            setOnClickListener { (scroll.parent as? android.view.View)?.let { } }
+            setOnClickListener { aspectDialog?.dismiss() }
         }, LinearLayout.LayoutParams(dpPlayer(36), dpPlayer(42)))
         panel.addView(titleRow)
         fun section(label: String) {
@@ -246,7 +246,6 @@ class PlayerActivity : AppCompatActivity() {
                     }
                     setOnClickListener {
                         setAspectPreset(label, ratio)
-                        (scroll.parent as? android.view.View)?.let { }
                         aspectDialog?.dismiss()
                     }
                 }
