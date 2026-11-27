@@ -1385,7 +1385,8 @@ class PlayerActivity : AppCompatActivity() {
             }
         }
         // Keep the title/back row visible while hiding playback action buttons.
-        playerHeader.visibility = View.VISIBLE
+        controlsHandler.removeCallbacks(hideControlsRunnable)
+        playerHeader.visibility = if (isLandscapeNow()) View.GONE else View.VISIBLE
         portraitActionRow.visibility = View.GONE
         landscapeHeader.visibility = View.VISIBLE
         landscapeActions.visibility = View.GONE
