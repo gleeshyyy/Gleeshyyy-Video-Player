@@ -198,6 +198,22 @@ class PlayerActivity : AppCompatActivity() {
         applyAspectMode()
     }
 
+    private fun handleAspectButtonTap() {
+        val settings = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+        if (!settings.getBoolean("tap_aspect_directly", false)) {
+            showAspectRatioMenu()
+            return
+        }
+        val presets = listOf(
+            "Fit" to null, "Fill" to null, "Original" to null, "Stretch" to null,
+            "16:9" to 16f/9f, "4:3" to 4f/3f, "18:9" to 2f, "19.5:9" to 19.5f/9f,
+            "20:9" to 20f/9f, "21:9" to 21f/9f, "1.85:1" to 1.85f,
+            "2.21:1" to 2.21f, "2.35:1" to 2.35f, "2.39:1" to 2.39f
+        )
+        val next = (presets.indexOfFirst { it.first == aspectModeName } + 1).let { if (it <= 0) 0 else it % presets.size }
+        setAspectPreset(presets[next].first, presets[next].second)
+    }
+
     private fun showAspectRatioMenu() {
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val scroll = android.widget.ScrollView(this).apply {
@@ -458,7 +474,7 @@ class PlayerActivity : AppCompatActivity() {
             marginStart = dpPlayer(12)
         })
         val fitButton = TextView(this).apply {
-            text = "FIT"
+            text = "RATIO"
             textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
@@ -468,7 +484,8 @@ class PlayerActivity : AppCompatActivity() {
                 setColor(palette.raised)
                 cornerRadius = dpPlayer(8).toFloat()
             }
-            setOnClickListener { showAspectRatioMenu() }
+            setOnClickListener { handleAspectButtonTap() }
+            setOnLongClickListener { showAspectRatioMenu(); true }
         }
         actionRow.addView(fitButton, LinearLayout.LayoutParams(dpPlayer(46), dpPlayer(36)).apply {
             marginStart = dpPlayer(12)
@@ -584,10 +601,11 @@ class PlayerActivity : AppCompatActivity() {
             setOnClickListener { showSubtitleCustomization() }
         }, LinearLayout.LayoutParams(dpPlayer(42), dpPlayer(42)))
         landscapeActions.addView(TextView(this).apply {
-            text = "FIT"; textSize = 13f; typeface = Typeface.DEFAULT_BOLD
+            text = "RATIO"; textSize = 13f; typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER; setTextColor(android.graphics.Color.WHITE)
             contentDescription = "Change video aspect ratio"
-            setOnClickListener { showAspectRatioMenu() }
+            setOnClickListener { handleAspectButtonTap() }
+            setOnLongClickListener { showAspectRatioMenu(); true }
         }, LinearLayout.LayoutParams(dpPlayer(42), dpPlayer(42)))
         landscapeHeader.addView(landscapeActions)
         playbackArea.addView(landscapeHeader, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
