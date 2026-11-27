@@ -923,7 +923,7 @@ class MainActivity : AppCompatActivity() {
                         selectionMode = false
                         selectedVideoUris.clear()
                         selectionScopeVideos = emptyList()
-                        android.widget.Toast.makeText(this, "Deleted", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(this, LanguageManager.translate(this@MainActivity, "Deleted"), android.widget.Toast.LENGTH_SHORT).show()
                         loadLibrary()
                     } catch (_: Exception) {
                         android.widget.Toast.makeText(this, LanguageManager.translate(this@MainActivity, "Delete failed"), android.widget.Toast.LENGTH_LONG).show()
@@ -1020,13 +1020,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun showVideoProperties(video: VideoItem) {
         val resolution = if (video.width > 0 && video.height > 0) "${video.width} × ${video.height}" else "Unknown"
-        val details = "Name: ${video.title}\nFolder: ${video.folderPath}\nDuration: ${formatDuration(video.duration)}\nResolution: $resolution\nSize: ${formatFileSize(video.sizeBytes)}"
+        val details = "${LanguageManager.translate(this@MainActivity, "Name")}: ${video.title}\n${LanguageManager.translate(this@MainActivity, "Folder")}: ${video.folderPath}\n${LanguageManager.translate(this@MainActivity, "Duration")}: ${formatDuration(video.duration)}\n${LanguageManager.translate(this@MainActivity, "Resolution")}: $resolution\n${LanguageManager.translate(this@MainActivity, "Size")}: ${formatFileSize(video.sizeBytes)}"
         AlertDialog.Builder(this).setTitle(LanguageManager.translate(this@MainActivity, "Video properties")).setMessage(details).setPositiveButton(LanguageManager.translate(this@MainActivity, "OK"), null).show()
     }
 
     private fun showFolderProperties(path: String, videos: List<VideoItem>) {
         val totalSize = videos.sumOf { it.sizeBytes }
-        val details = "Folder: ${videos.firstOrNull()?.folder ?: "Folder"}\nPath: $path\nVideos: ${videos.size}\nTotal size: ${formatFileSize(totalSize)}"
+        val details = "${LanguageManager.translate(this@MainActivity, "Folder")}: ${videos.firstOrNull()?.folder ?: LanguageManager.translate(this@MainActivity, "Folder")}\n${LanguageManager.translate(this@MainActivity, "Path")}: $path\n${LanguageManager.translate(this@MainActivity, "Videos")}: ${videos.size}\n${LanguageManager.translate(this@MainActivity, "Total size")}: ${formatFileSize(totalSize)}"
         AlertDialog.Builder(this).setTitle(LanguageManager.translate(this@MainActivity, "Folder properties")).setMessage(details).setPositiveButton(LanguageManager.translate(this@MainActivity, "OK"), null).show()
     }
 
