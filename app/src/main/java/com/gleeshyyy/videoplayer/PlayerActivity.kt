@@ -857,38 +857,17 @@ class PlayerActivity : AppCompatActivity() {
                 setOnClickListener { action() }
             }
         controlsBar.addView(controlButton("⏮", "Previous video") {
-            val current = player
-            val currentIndex = current?.currentMediaItemIndex ?: playlistIndex
-            if (currentIndex > 0) {
-                // Start a fresh player session for the previous item so its
-                // saved position is loaded and the normal Continue prompt appears.
-                savePosition()
-                val previousIndex = currentIndex - 1
-                val previousUri = playlistUris[previousIndex]
-                val titles = intent.getStringArrayListExtra("playlist_titles")
-                startActivity(Intent(this, PlayerActivity::class.java).apply {
-                    data = previousUri
-                    putExtra("title", titles?.getOrNull(previousIndex) ?: previousUri.lastPathSegment ?: "Video")
-                    putParcelableArrayListExtra("playlist_uris", ArrayList(playlistUris))
-                    putStringArrayListExtra("playlist_titles", titles)
-                    putExtra("playlist_index", previousIndex)
-                    putExtra("return_folder", intent.getStringExtra("return_folder"))
-                    putExtra("return_tab", intent.getIntExtra("return_tab", 0))
-                    putExtra("return_search_page", intent.getBooleanExtra("return_search_page", false))
-                    putExtra("return_search_query", intent.getStringExtra("return_search_query") ?: "")
-                    putExtra("return_scroll_y", intent.getIntExtra("return_scroll_y", 0))
-                })
-                finish()
-            } else {
-                current?.seekTo(0L)
-            }
+            val currentIndex = player?.currentMediaItemIndex ?: playlistIndex
+            if (currentIndex > 0) openPlaylistItem(currentIndex - 1)
+            else player?.seekTo(0L)
         }, LinearLayout.LayoutParams(0, -2, 1f))
         playPauseButton = controlButton("Ⅱ", "Play or pause") {
             player?.let { if (it.isPlaying) it.pause() else it.play() }
         }
         controlsBar.addView(playPauseButton, LinearLayout.LayoutParams(0, -2, 1f))
         controlsBar.addView(controlButton("⏭", "Next video") {
-            player?.seekToNextMediaItem()
+            val currentIndex = player?.currentMediaItemIndex ?: playlistIndex
+            if (currentIndex < playlistUris.lastIndex) openPlaylistItem(currentIndex + 1)
         }, LinearLayout.LayoutParams(0, -2, 1f))
         endModeButton = controlButton("🔁", "Play next video when finished") { showEndBehaviorOptions() }
         endModeButton.textSize = 23f
@@ -1987,6 +1966,30 @@ class PlayerActivity : AppCompatActivity() {
         } catch (_: Exception) { emptyList() }
         val next = (listOf(uri) + old.filterNot { it == uri }).take(10)
         prefs.edit().putString("recent", JSONArray(next).toString()).apply()
+    }
+
+    private fun openPlaylistItem(targetIndex: Int) {
+        if (targetIndex !in playlistUris.indices) return
+        val currentPlayer = player
+        currentPlayer?.let {
+            // Persist the outgoing item's exact position before changing sessions.
+            savePosition()
+        }
+        val targetUri = playlistUris[targetIndex]
+        val titles = intent.getStringArrayListExtra("playlist_titles")
+        startActivity(Intent(this, PlayerActivity::class.java).apply {
+            data = targetUri
+            putExtra("title", titles?.getOrNull(targetIndex) ?: targetUri.lastPathSegment ?: "Video")
+            putParcelableArrayListExtra("playlist_uris", ArrayList(playlistUris))
+            putStringArrayListExtra("playlist_titles", titles)
+            putExtra("playlist_index", targetIndex)
+            putExtra("return_folder", intent.getStringExtra("return_folder"))
+            putExtra("return_tab", intent.getIntExtra("return_tab", 0))
+            putExtra("return_search_page", intent.getBooleanExtra("return_search_page", false))
+            putExtra("return_search_query", intent.getStringExtra("return_search_query") ?: "")
+            putExtra("return_scroll_y", intent.getIntExtra("return_scroll_y", 0))
+        })
+        finish()
     }
 
     private fun savePosition() {
