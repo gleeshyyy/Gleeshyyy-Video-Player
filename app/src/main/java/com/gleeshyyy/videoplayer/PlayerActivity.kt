@@ -807,7 +807,31 @@ class PlayerActivity : AppCompatActivity() {
                 setOnClickListener { action() }
             }
         controlsBar.addView(controlButton("⏮", "Previous video") {
-            player?.let { current -> if (current.currentMediaItemIndex > 0) current.seekTo(current.currentMediaItemIndex - 1, 0L) else current.seekTo(0L) }
+            val current = player
+            val currentIndex = current?.currentMediaItemIndex ?: playlistIndex
+            if (currentIndex > 0) {
+                // Start a fresh player session for the previous item so its
+                // saved position is loaded and the normal Continue prompt appears.
+                savePosition()
+                val previousIndex = currentIndex - 1
+                val previousUri = playlistUris[previousIndex]
+                val titles = intent.getStringArrayListExtra("playlist_titles")
+                startActivity(Intent(this, PlayerActivity::class.java).apply {
+                    data = previousUri
+                    putExtra("title", titles?.getOrNull(previousIndex) ?: previousUri.lastPathSegment ?: "Video")
+                    putParcelableArrayListExtra("playlist_uris", ArrayList(playlistUris))
+                    putStringArrayListExtra("playlist_titles", titles)
+                    putExtra("playlist_index", previousIndex)
+                    putExtra("return_folder", intent.getStringExtra("return_folder"))
+                    putExtra("return_tab", intent.getIntExtra("return_tab", 0))
+                    putExtra("return_search_page", intent.getBooleanExtra("return_search_page", false))
+                    putExtra("return_search_query", intent.getStringExtra("return_search_query") ?: "")
+                    putExtra("return_scroll_y", intent.getIntExtra("return_scroll_y", 0))
+                })
+                finish()
+            } else {
+                current?.seekTo(0L)
+            }
         }, LinearLayout.LayoutParams(0, -2, 1f))
         playPauseButton = controlButton("Ⅱ", "Play or pause") {
             player?.let { if (it.isPlaying) it.pause() else it.play() }
