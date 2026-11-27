@@ -216,95 +216,140 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun showAspectRatioMenu() {
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val prefs = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
         val scroll = android.widget.ScrollView(this).apply {
             isFillViewport = true
-            setBackgroundColor(0xEE101010.toInt())
+            clipToPadding = false
+            setPadding(dpPlayer(8), dpPlayer(8), dpPlayer(8), dpPlayer(8))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = dpPlayer(18).toFloat()
+                setColor(0xD910171D.toInt())
+                setStroke(dpPlayer(1), 0x553FFFFFF)
+            }
         }
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dpPlayer(18), dpPlayer(14), dpPlayer(18), dpPlayer(18))
+            setPadding(dpPlayer(16), dpPlayer(12), dpPlayer(16), dpPlayer(14))
         }
         scroll.addView(panel)
-        val titleRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+
+        val titleRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
         titleRow.addView(TextView(this).apply {
-            text = "‹  Ratio"
-            textSize = 23f
+            text = "▣   Aspect Ratio"
+            textSize = 17f
+            typeface = Typeface.DEFAULT_BOLD
             setTextColor(android.graphics.Color.WHITE)
-            setPadding(0, 0, dpPlayer(12), dpPlayer(10))
-            setOnClickListener { }
-        }, LinearLayout.LayoutParams(0, -2, 1f))
+        }, LinearLayout.LayoutParams(0, dpPlayer(42), 1f))
         titleRow.addView(TextView(this).apply {
-            text = "×"; textSize = 26f; gravity = Gravity.CENTER
-            setTextColor(android.graphics.Color.WHITE)
+            text = "×"
+            textSize = 25f
+            gravity = Gravity.CENTER
+            setTextColor(0xCCFFFFFF.toInt())
             setOnClickListener { aspectDialog?.dismiss() }
-        }, LinearLayout.LayoutParams(dpPlayer(36), dpPlayer(42)))
+        }, LinearLayout.LayoutParams(dpPlayer(34), dpPlayer(42)))
         panel.addView(titleRow)
+
+        fun divider(top: Int = 8, bottom: Int = 8) {
+            panel.addView(View(this).apply { setBackgroundColor(0x557F929B) },
+                LinearLayout.LayoutParams(-1, dpPlayer(1)).apply {
+                    topMargin = dpPlayer(top)
+                    bottomMargin = dpPlayer(bottom)
+                })
+        }
         fun section(label: String) {
             panel.addView(TextView(this).apply {
-                text = label; textSize = 16f; setTextColor(android.graphics.Color.WHITE)
-                setPadding(0, dpPlayer(12), 0, dpPlayer(10))
+                text = label
+                textSize = 11f
+                typeface = Typeface.DEFAULT_BOLD
+                letterSpacing = 0.06f
+                setTextColor(0xBFFFFFFF.toInt())
+                setPadding(0, dpPlayer(9), 0, dpPlayer(5))
             })
         }
-        fun ratioRow(items: List<Pair<String, Float?>>) {
-            val horizontal = android.widget.HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false }
-            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            items.forEach { (label, ratio) ->
-                val selected = aspectModeName == label
-                val chip = TextView(this).apply {
-                    text = label
-                    textSize = 13f
-                    gravity = Gravity.CENTER
-                    setTextColor(android.graphics.Color.WHITE)
-                    setPadding(dpPlayer(15), dpPlayer(11), dpPlayer(15), dpPlayer(11))
-                    background = android.graphics.drawable.GradientDrawable().apply {
-                        shape = android.graphics.drawable.GradientDrawable.OVAL
-                        setColor(if (selected) palette.accent else 0xFF292929.toInt())
-                    }
-                    setOnClickListener {
-                        setAspectPreset(label, ratio)
-                        aspectDialog?.dismiss()
-                    }
+        fun option(label: String, ratio: Float? = null) {
+            val selected = aspectModeName == label
+            val item = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dpPlayer(10), 0, dpPlayer(10), 0)
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = dpPlayer(7).toFloat()
+                    setColor(if (selected) 0x5530C982 else android.graphics.Color.TRANSPARENT)
                 }
-                row.addView(chip, LinearLayout.LayoutParams(dpPlayer(76), dpPlayer(56)).apply { marginEnd = dpPlayer(10) })
+                minimumHeight = dpPlayer(34)
+                isClickable = true
+                isFocusable = true
+                setOnClickListener {
+                    setAspectPreset(label, ratio)
+                    aspectDialog?.dismiss()
+                }
             }
-            horizontal.addView(row)
-            panel.addView(horizontal)
+            item.addView(TextView(this).apply {
+                text = label
+                textSize = 13f
+                setTextColor(if (selected) 0xFFFFFFFF.toInt() else 0xEFFFFFFF.toInt())
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+            if (selected) item.addView(TextView(this).apply {
+                text = "✓"
+                textSize = 16f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(palette.accent)
+            })
+            panel.addView(item, LinearLayout.LayoutParams(-1, dpPlayer(34)))
         }
-        section("Screen")
-        ratioRow(listOf("Fit" to null, "Fill" to null, "Original" to null, "Stretch" to null))
-        section("Standard")
-        ratioRow(listOf("16:9" to 16f/9f, "4:3" to 4f/3f, "18:9" to 2f, "19.5:9" to 19.5f/9f, "20:9" to 20f/9f, "21:9" to 21f/9f))
-        section("Cinema")
-        ratioRow(listOf("1.85:1" to 1.85f, "2.21:1" to 2.21f, "2.35:1" to 2.35f, "2.39:1" to 2.39f))
+        section("SCREEN")
+        listOf("Fit" to null, "Fill" to null, "Original" to null, "Stretch" to null).forEach { option(it.first, it.second) }
+        divider()
+        section("STANDARD RATIOS")
+        listOf(
+            "16:9" to 16f / 9f, "4:3" to 4f / 3f, "18:9" to 2f,
+            "19.5:9" to 19.5f / 9f, "20:9" to 20f / 9f, "21:9" to 21f / 9f
+        ).forEach { option(it.first, it.second) }
+        divider()
+        section("CINEMA RATIOS")
+        listOf("1.85:1" to 1.85f, "2.21:1" to 2.21f, "2.35:1" to 2.35f, "2.39:1" to 2.39f)
+            .forEach { option(it.first, it.second) }
 
-        panel.addView(View(this).apply { setBackgroundColor(0xFF444444.toInt()) },
-            LinearLayout.LayoutParams(-1, dpPlayer(1)).apply { topMargin = dpPlayer(18); bottomMargin = dpPlayer(14) })
-        val remember = android.widget.Switch(this).apply {
-            text = "Remember ratio for all videos"
-            textSize = 15f
-            setTextColor(android.graphics.Color.WHITE)
-            isChecked = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getBoolean("remember_aspect", true)
-            setOnCheckedChangeListener { _, checked ->
-                getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).edit().putBoolean("remember_aspect", checked).apply()
-                if (checked) saveAspectSettings()
-            }
+        divider(10, 6)
+        var customExpanded = false
+        val customContent = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
         }
-        panel.addView(remember)
-        val direct = android.widget.Switch(this).apply {
-            text = "Tap ratios to switch directly"
-            textSize = 15f
-            setTextColor(android.graphics.Color.WHITE)
-            isChecked = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getBoolean("tap_aspect_directly", true)
-            setOnCheckedChangeListener { _, checked ->
-                getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).edit().putBoolean("tap_aspect_directly", checked).apply()
-            }
+        val customHeader = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dpPlayer(2), dpPlayer(8), dpPlayer(2), dpPlayer(8))
+            isClickable = true
+            isFocusable = true
         }
-        panel.addView(direct)
-        section("Custom adjustment")
+        customHeader.addView(TextView(this).apply {
+            text = "⚙   Custom Adjustment"
+            textSize = 13f
+            setTextColor(android.graphics.Color.WHITE)
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        val expandMark = TextView(this).apply {
+            text = "›"
+            textSize = 22f
+            setTextColor(0xDDFFFFFF.toInt())
+        }
+        customHeader.addView(expandMark)
+        customHeader.setOnClickListener {
+            customExpanded = !customExpanded
+            customContent.visibility = if (customExpanded) View.VISIBLE else View.GONE
+            expandMark.text = if (customExpanded) "⌄" else "›"
+        }
+        panel.addView(customHeader)
+
         fun adjustment(label: String, initial: Int, onValue: (Int) -> Unit) {
             val row = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
             val heading = TextView(this).apply {
-                text = "$label · $initial%"; textSize = 14f; setTextColor(android.graphics.Color.WHITE)
+                text = "$label  $initial%"
+                textSize = 12f
+                setTextColor(0xDDFFFFFF.toInt())
             }
             val seek = SeekBar(this).apply {
                 max = 150
@@ -314,7 +359,7 @@ class PlayerActivity : AppCompatActivity() {
                 setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                     override fun onProgressChanged(bar: SeekBar?, value: Int, fromUser: Boolean) {
                         val percent = value + 50
-                        heading.text = "$label · $percent%"
+                        heading.text = "$label  $percent%"
                         onValue(percent)
                     }
                     override fun onStartTrackingTouch(bar: SeekBar?) {}
@@ -323,39 +368,77 @@ class PlayerActivity : AppCompatActivity() {
             }
             row.addView(heading)
             row.addView(seek)
-            panel.addView(row)
+            customContent.addView(row)
         }
-        adjustment("Width", customWidthPercent) { customWidthPercent = it; if (selectedAspectRatio != null) { saveAspectSettings(); applyAspectMode() } }
-        adjustment("Height", customHeightPercent) { customHeightPercent = it; if (selectedAspectRatio != null) { saveAspectSettings(); applyAspectMode() } }
-        panel.addView(TextView(this).apply {
-            text = "Reset custom adjustment"
-            textSize = 14f; gravity = Gravity.CENTER
+        adjustment("Width", customWidthPercent) {
+            customWidthPercent = it
+            if (selectedAspectRatio != null) { saveAspectSettings(); applyAspectMode() }
+        }
+        adjustment("Height", customHeightPercent) {
+            customHeightPercent = it
+            if (selectedAspectRatio != null) { saveAspectSettings(); applyAspectMode() }
+        }
+        customContent.addView(TextView(this).apply {
+            text = "Reset"
+            textSize = 12f
+            gravity = Gravity.END
             setTextColor(palette.accent)
-            setPadding(0, dpPlayer(12), 0, dpPlayer(8))
+            setPadding(0, dpPlayer(4), 0, dpPlayer(8))
             setOnClickListener {
-                customWidthPercent = 100; customHeightPercent = 100
-                saveAspectSettings(); applyAspectMode()
-                aspectDialog?.dismiss(); showAspectRatioMenu()
+                customWidthPercent = 100
+                customHeightPercent = 100
+                saveAspectSettings()
+                applyAspectMode()
+                aspectDialog?.dismiss()
+                showAspectRatioMenu()
             }
         })
+        panel.addView(customContent)
+
+        divider(6, 6)
+        fun settingRow(label: String, key: String, defaultValue: Boolean) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dpPlayer(38)
+            }
+            row.addView(TextView(this).apply {
+                text = label
+                textSize = 11f
+                setTextColor(0xEFFFFFFF.toInt())
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+            val toggle = android.widget.Switch(this).apply {
+                isChecked = prefs.getBoolean(key, defaultValue)
+                buttonTintList = android.content.res.ColorStateList.valueOf(palette.accent)
+                setOnCheckedChangeListener { _, checked ->
+                    prefs.edit().putBoolean(key, checked).apply()
+                }
+            }
+            row.addView(toggle)
+            panel.addView(row)
+        }
+        settingRow("Remember ratio for all videos", "remember_aspect", true)
+        settingRow("Tap ratios to switch directly", "tap_aspect_directly", true)
+
         aspectDialog = AlertDialog.Builder(this).setView(scroll).create()
-        aspectDialog?.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
         aspectDialog?.setOnShowListener {
             val window = aspectDialog?.window ?: return@setOnShowListener
             window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
             val attrs = window.attributes
-            attrs.dimAmount = 0.12f
+            attrs.dimAmount = 0.08f
             window.attributes = attrs
-            window.setLayout(
-                if (landscape) dpPlayer(390) else -1,
-                if (landscape) -1 else -1
-            )
-            window.setGravity(if (landscape) Gravity.END else Gravity.CENTER)
+            val width = if (landscape) dpPlayer(360) else (resources.displayMetrics.widthPixels - dpPlayer(32)).coerceAtLeast(dpPlayer(280))
+            val height = if (landscape) -1 else (resources.displayMetrics.heightPixels * 0.86f).toInt()
+            window.setLayout(width, height)
+            window.setGravity(if (landscape) Gravity.END or Gravity.CENTER_VERTICAL else Gravity.CENTER)
         }
         aspectDialog?.show()
         aspectDialog?.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
-        aspectDialog?.window?.setLayout(if (landscape) dpPlayer(390) else -1, -1)
+        val width = if (landscape) dpPlayer(360) else (resources.displayMetrics.widthPixels - dpPlayer(32)).coerceAtLeast(dpPlayer(280))
+        val height = if (landscape) -1 else (resources.displayMetrics.heightPixels * 0.86f).toInt()
+        aspectDialog?.window?.setLayout(width, height)
+        aspectDialog?.window?.setGravity(if (landscape) Gravity.END or Gravity.CENTER_VERTICAL else Gravity.CENTER)
     }
     private var aspectDialog: AlertDialog? = null
     private lateinit var gestureLayer: View
