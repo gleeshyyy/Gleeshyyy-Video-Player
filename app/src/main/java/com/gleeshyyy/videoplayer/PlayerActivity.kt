@@ -1106,7 +1106,7 @@ class PlayerActivity : AppCompatActivity() {
         )
         loadExternalSubtitleCues(uri)
         if (::subtitleFileLabel.isInitialized) {
-            subtitleFileLabel.text = LanguageManager.translate(this@PlayerActivity, "Loaded:") + " $displayName"
+            subtitleFileLabel.text = LanguageManager.translate(this@PlayerActivity, "Loaded") + " $displayName"
             subtitleFileLabel.setTextColor(palette.accent)
         }
         currentSubtitleValueLabel?.text = displayName
@@ -2131,11 +2131,11 @@ class PlayerActivity : AppCompatActivity() {
         val current = player ?: return
         val mode = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getInt("playback_end_behavior", 0).coerceIn(0, 2)
         endModeButton.text = when (mode) { 1 -> "🔂"; 2 -> "🔁̸"; else -> "🔁" }
-        endModeButton.contentDescription = when (mode) {
+        endModeButton.contentDescription = LanguageManager.translate(this@PlayerActivity, when (mode) {
             1 -> "Repeat current video when finished"
             2 -> "Stop and return to list when finished"
             else -> "Play next video when finished"
-        }
+        })
         current.repeatMode = if (mode == 1) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
         if (reload) {
             val position = current.currentPosition.coerceAtLeast(0L)
