@@ -523,7 +523,7 @@ class PlayerActivity : AppCompatActivity() {
         val videoSettings = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
         longPressSpeed = videoSettings.getFloat("long_press_speed", 2.0f)
         showingRemainingTime = videoSettings.getBoolean("show_remaining_duration", false)
-        subtitleColor = loadRememberedSubtitleColor()
+        subtitleColor = if (subtitleRemembered()) loadRememberedSubtitleColor() else 0xFFD0D0D0.toInt()
         seekIntervalMs = videoSettings.getInt("seek_interval", 10).coerceIn(3, 60) * 1000L
         longPressVibrator = getSystemService(VIBRATOR_SERVICE) as? android.os.Vibrator
         if (videoSettings.getBoolean("remember_orientation", true) && videoSettings.contains("last_orientation")) {
@@ -1254,7 +1254,7 @@ class PlayerActivity : AppCompatActivity() {
                     if (times.size != 2) return@mapNotNull null
                     val start = parseTime(times[0]) ?: return@mapNotNull null
                     val end = parseTime(times[1]) ?: return@mapNotNull null
-                    val text = lines.drop(timeIndex + 1).joinToString("\\n")
+                    val text = lines.drop(timeIndex + 1).joinToString("\n")
                         .replace(Regex("<[^>]*>"), "").trim()
                     if (text.isBlank() || end <= start) null else ExternalSubtitleCue(start, end, text)
                 }.sortedBy { it.startMs }
@@ -1633,7 +1633,7 @@ class PlayerActivity : AppCompatActivity() {
             tag = "subtitle_delay_controller"
             elevation = dpPlayer(16).toFloat()
         }
-        fun close() { (card.parent as? android.view.ViewGroup)?.removeView(card) }
+        fun close() { commitDelayValue(); (card.parent as? android.view.ViewGroup)?.removeView(card) }
         val minus = TextView(this).apply {
             text = "−"; textSize = 21f; typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER; setTextColor(android.graphics.Color.WHITE)
