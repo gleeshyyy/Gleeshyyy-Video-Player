@@ -1408,7 +1408,7 @@ class PlayerActivity : AppCompatActivity() {
 
         fun sectionLabel(value: String) {
             panel.addView(TextView(this).apply {
-                text = value
+                text = LanguageManager.translate(this@PlayerActivity, value)
                 textSize = 12f
                 typeface = Typeface.DEFAULT_BOLD
                 setTextColor(palette.muted)
@@ -1425,7 +1425,7 @@ class PlayerActivity : AppCompatActivity() {
                 setOnClickListener { action() }
             }
             row.addView(TextView(this).apply {
-                text = title
+                text = LanguageManager.translate(this@PlayerActivity, title)
                 textSize = 15f
                 setTextColor(palette.text)
             })
@@ -1583,7 +1583,7 @@ class PlayerActivity : AppCompatActivity() {
             .setTitle(LanguageManager.translate(this@PlayerActivity, "Current subtitles"))
             .setSingleChoiceItems(choices.toTypedArray(), selectedChoice) { dialog, which ->
                 if (which > 0 && !supported.getOrElse(which) { false }) {
-                    android.widget.Toast.makeText(this, "This subtitle format is not supported on this device.", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(this, LanguageManager.translate(this@PlayerActivity, "This subtitle format is not supported on this device."), android.widget.Toast.LENGTH_SHORT).show()
                     return@setSingleChoiceItems
                 }
                 if (which == 0) {
