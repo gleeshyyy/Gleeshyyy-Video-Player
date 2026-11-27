@@ -2116,7 +2116,9 @@ class PlayerActivity : AppCompatActivity() {
             // Preserve the existing landscape timeout.
             controlsHandler.postDelayed(hideControlsRunnable, 5000L)
         } else if (playbackArea.findViewWithTag<View>("subtitle_settings_panel") == null) {
-            controlsHandler.postDelayed(hideControlsRunnable, 7000L)
+            val timeoutMs = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+                .getInt("controls_auto_hide", 7000)
+            if (timeoutMs > 0) controlsHandler.postDelayed(hideControlsRunnable, timeoutMs.toLong())
         }
     }
 
