@@ -42,7 +42,7 @@ class SplashActivity : AppCompatActivity() {
         }
         brandStack.addView(wordmark)
         val subtitle = TextView(this).apply {
-            text = "VIDEO PLAYER"
+            text = LanguageManager.translate(this@SplashActivity, "VIDEO PLAYER")
             textSize = 11f
             letterSpacing = 0.28f
             gravity = Gravity.CENTER
