@@ -116,19 +116,233 @@ class PlayerActivity : AppCompatActivity() {
     private var resizeModeIndex = 0
     private var nativeVideoWidth = 0
     private var nativeVideoHeight = 0
-    private fun applyAspectMode() {
-        if (!::playerView.isInitialized || !::playbackArea.isInitialized) return
-        if (resizeModeIndex == 3 && nativeVideoWidth > 0 && nativeVideoHeight > 0) {
-            playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-            val density = resources.displayMetrics.density
-            val widthDp = (nativeVideoWidth / density).toInt().coerceAtLeast(1)
-            val heightDp = (nativeVideoHeight / density).toInt().coerceAtLeast(1)
-            playerView.layoutParams = FrameLayout.LayoutParams(widthDp, heightDp, Gravity.CENTER)
-        } else {
-            playerView.resizeMode = resizeModes[resizeModeIndex.coerceIn(0, 2)]
-            playerView.layoutParams = FrameLayout.LayoutParams(-1, -1)
+    private var selectedAspectRatio: Float? = null
+    private var aspectModeName = "Fit"
+    private var customWidthPercent = 100
+    private var customHeightPercent = 100
+
+    private fun saveAspectSettings() {
+        val prefs = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE)
+        prefs.edit()
+            .putString("aspect_mode_name", aspectModeName)
+            .putFloat("aspect_ratio_value", selectedAspectRatio ?: 0f)
+            .putInt("aspect_custom_width", customWidthPercent)
+            .putInt("aspect_custom_height", customHeightPercent)
+            .apply()
+        if (prefs.getBoolean("remember_aspect", true)) {
+            prefs.edit().putString("last_aspect_name", aspectModeName).apply()
         }
     }
+
+    private fun applyAspectMode() {
+        if (!::playerView.isInitialized || !::playbackArea.isInitialized) return
+        val areaWidth = playbackArea.width
+        val areaHeight = playbackArea.height
+        when (aspectModeName) {
+            "Fit" -> {
+                playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                playerView.layoutParams = FrameLayout.LayoutParams(-1, -1)
+            }
+            "Fill" -> {
+                playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                playerView.layoutParams = FrameLayout.LayoutParams(-1, -1)
+            }
+            "Original" -> {
+                playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                if (nativeVideoWidth > 0 && nativeVideoHeight > 0) {
+                    val density = resources.displayMetrics.density
+                    playerView.layoutParams = FrameLayout.LayoutParams(
+                        (nativeVideoWidth / density).toInt().coerceAtLeast(1),
+                        (nativeVideoHeight / density).toInt().coerceAtLeast(1),
+                        Gravity.CENTER
+                    )
+                } else playerView.layoutParams = FrameLayout.LayoutParams(-1, -1)
+            }
+            "Stretch" -> {
+                playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
+                playerView.layoutParams = FrameLayout.LayoutParams(-1, -1)
+            }
+            else -> {
+                val baseRatio = selectedAspectRatio
+                if (baseRatio == null || areaWidth <= 0 || areaHeight <= 0) {
+                    playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    playerView.layoutParams = FrameLayout.LayoutParams(-1, -1)
+                } else {
+                    val targetRatio = baseRatio * customWidthPercent.coerceIn(50, 200) / customHeightPercent.coerceIn(50, 200).toFloat()
+                    val areaRatio = areaWidth.toFloat() / areaHeight.toFloat()
+                    val targetWidth: Int
+                    val targetHeight: Int
+                    if (areaRatio > targetRatio) {
+                        targetHeight = areaHeight
+                        targetWidth = (areaHeight * targetRatio).toInt()
+                    } else {
+                        targetWidth = areaWidth
+                        targetHeight = (areaWidth / targetRatio).toInt()
+                    }
+                    playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
+                    playerView.layoutParams = FrameLayout.LayoutParams(
+                        targetWidth.coerceAtLeast(1), targetHeight.coerceAtLeast(1), Gravity.CENTER
+                    )
+                }
+            }
+        }
+        playerView.requestLayout()
+    }
+
+    private fun setAspectPreset(name: String, ratio: Float? = null) {
+        aspectModeName = name
+        selectedAspectRatio = ratio
+        customWidthPercent = 100
+        customHeightPercent = 100
+        saveAspectSettings()
+        applyAspectMode()
+    }
+
+    private fun showAspectRatioMenu() {
+        val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val scroll = android.widget.ScrollView(this).apply {
+            isFillViewport = true
+            setBackgroundColor(0xEE101010.toInt())
+        }
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dpPlayer(18), dpPlayer(14), dpPlayer(18), dpPlayer(18))
+        }
+        scroll.addView(panel)
+        val titleRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        titleRow.addView(TextView(this).apply {
+            text = "‹  Ratio"
+            textSize = 23f
+            setTextColor(android.graphics.Color.WHITE)
+            setPadding(0, 0, dpPlayer(12), dpPlayer(10))
+            setOnClickListener { }
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        titleRow.addView(TextView(this).apply {
+            text = "×"; textSize = 26f; gravity = Gravity.CENTER
+            setTextColor(android.graphics.Color.WHITE)
+            setOnClickListener { (scroll.parent as? android.view.View)?.let { } }
+        }, LinearLayout.LayoutParams(dpPlayer(36), dpPlayer(42)))
+        panel.addView(titleRow)
+        fun section(label: String) {
+            panel.addView(TextView(this).apply {
+                text = label; textSize = 16f; setTextColor(android.graphics.Color.WHITE)
+                setPadding(0, dpPlayer(12), 0, dpPlayer(10))
+            })
+        }
+        fun ratioRow(items: List<Pair<String, Float?>>) {
+            val horizontal = android.widget.HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false }
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            items.forEach { (label, ratio) ->
+                val selected = aspectModeName == label
+                val chip = TextView(this).apply {
+                    text = label
+                    textSize = 13f
+                    gravity = Gravity.CENTER
+                    setTextColor(android.graphics.Color.WHITE)
+                    setPadding(dpPlayer(15), dpPlayer(11), dpPlayer(15), dpPlayer(11))
+                    background = android.graphics.drawable.GradientDrawable().apply {
+                        shape = android.graphics.drawable.GradientDrawable.OVAL
+                        setColor(if (selected) palette.accent else 0xFF292929.toInt())
+                    }
+                    setOnClickListener {
+                        setAspectPreset(label, ratio)
+                        (scroll.parent as? android.view.View)?.let { }
+                        aspectDialog?.dismiss()
+                    }
+                }
+                row.addView(chip, LinearLayout.LayoutParams(dpPlayer(76), dpPlayer(56)).apply { marginEnd = dpPlayer(10) })
+            }
+            horizontal.addView(row)
+            panel.addView(horizontal)
+        }
+        section("Screen")
+        ratioRow(listOf("Fit" to null, "Fill" to null, "Original" to null, "Stretch" to null))
+        section("Standard")
+        ratioRow(listOf("16:9" to 16f/9f, "4:3" to 4f/3f, "18:9" to 2f, "19.5:9" to 19.5f/9f, "20:9" to 20f/9f, "21:9" to 21f/9f))
+        section("Cinema")
+        ratioRow(listOf("1.85:1" to 1.85f, "2.21:1" to 2.21f, "2.35:1" to 2.35f, "2.39:1" to 2.39f))
+
+        panel.addView(View(this).apply { setBackgroundColor(0xFF444444.toInt()) },
+            LinearLayout.LayoutParams(-1, dpPlayer(1)).apply { topMargin = dpPlayer(18); bottomMargin = dpPlayer(14) })
+        val remember = android.widget.Switch(this).apply {
+            text = "Remember ratio for all videos"
+            textSize = 15f
+            setTextColor(android.graphics.Color.WHITE)
+            isChecked = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getBoolean("remember_aspect", true)
+            setOnCheckedChangeListener { _, checked ->
+                getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).edit().putBoolean("remember_aspect", checked).apply()
+                if (checked) saveAspectSettings()
+            }
+        }
+        panel.addView(remember)
+        val direct = android.widget.Switch(this).apply {
+            text = "Tap ratios to switch directly"
+            textSize = 15f
+            setTextColor(android.graphics.Color.WHITE)
+            isChecked = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getBoolean("tap_aspect_directly", true)
+            setOnCheckedChangeListener { _, checked ->
+                getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).edit().putBoolean("tap_aspect_directly", checked).apply()
+            }
+        }
+        panel.addView(direct)
+        section("Custom adjustment")
+        fun adjustment(label: String, initial: Int, onValue: (Int) -> Unit) {
+            val row = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            val heading = TextView(this).apply {
+                text = "$label · $initial%"; textSize = 14f; setTextColor(android.graphics.Color.WHITE)
+            }
+            val seek = SeekBar(this).apply {
+                max = 150
+                progress = (initial - 50).coerceIn(0, 150)
+                progressTintList = android.content.res.ColorStateList.valueOf(palette.accent)
+                thumbTintList = android.content.res.ColorStateList.valueOf(palette.accent)
+                setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(bar: SeekBar?, value: Int, fromUser: Boolean) {
+                        val percent = value + 50
+                        heading.text = "$label · $percent%"
+                        onValue(percent)
+                    }
+                    override fun onStartTrackingTouch(bar: SeekBar?) {}
+                    override fun onStopTrackingTouch(bar: SeekBar?) {}
+                })
+            }
+            row.addView(heading)
+            row.addView(seek)
+            panel.addView(row)
+        }
+        adjustment("Width", customWidthPercent) { customWidthPercent = it; if (selectedAspectRatio != null) { saveAspectSettings(); applyAspectMode() } }
+        adjustment("Height", customHeightPercent) { customHeightPercent = it; if (selectedAspectRatio != null) { saveAspectSettings(); applyAspectMode() } }
+        panel.addView(TextView(this).apply {
+            text = "Reset custom adjustment"
+            textSize = 14f; gravity = Gravity.CENTER
+            setTextColor(palette.accent)
+            setPadding(0, dpPlayer(12), 0, dpPlayer(8))
+            setOnClickListener {
+                customWidthPercent = 100; customHeightPercent = 100
+                saveAspectSettings(); applyAspectMode()
+                aspectDialog?.dismiss(); showAspectRatioMenu()
+            }
+        })
+        aspectDialog = AlertDialog.Builder(this).setView(scroll).create()
+        aspectDialog?.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+        aspectDialog?.setOnShowListener {
+            val window = aspectDialog?.window ?: return@setOnShowListener
+            window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            val attrs = window.attributes
+            attrs.dimAmount = 0.12f
+            window.attributes = attrs
+            window.setLayout(
+                if (landscape) dpPlayer(390) else -1,
+                if (landscape) -1 else -1
+            )
+            window.setGravity(if (landscape) Gravity.END else Gravity.CENTER)
+        }
+        aspectDialog?.show()
+        aspectDialog?.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+        aspectDialog?.window?.setLayout(if (landscape) dpPlayer(390) else -1, -1)
+    }
+    private var aspectDialog: AlertDialog? = null
     private lateinit var gestureLayer: View
     private lateinit var gestureDetector: GestureDetector
     private var gestureVolume = 0f
@@ -255,23 +469,24 @@ class PlayerActivity : AppCompatActivity() {
                 setColor(palette.raised)
                 cornerRadius = dpPlayer(8).toFloat()
             }
-            setOnClickListener {
-                resizeModeIndex = (resizeModeIndex + 1) % resizeModes.size
-                applyAspectMode()
-                if (getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getBoolean("remember_aspect", true))
-                    getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).edit().putInt("last_aspect", resizeModeIndex).apply()
-                text = resizeLabels[resizeModeIndex]
-            }
+            setOnClickListener { showAspectRatioMenu() }
         }
         actionRow.addView(fitButton, LinearLayout.LayoutParams(dpPlayer(46), dpPlayer(36)).apply {
             marginStart = dpPlayer(12)
         })
         playerHeader.addView(actionRow, LinearLayout.LayoutParams(-1, -2))
         rootLayout.addView(playerHeader, LinearLayout.LayoutParams(-1, -2))
-        resizeModeIndex = if (videoSettings.getBoolean("remember_aspect", true))
-            videoSettings.getInt("last_aspect", 0).coerceIn(0, resizeModes.lastIndex) else 0
+        aspectModeName = if (videoSettings.getBoolean("remember_aspect", true))
+            videoSettings.getString("last_aspect_name", "Fit") ?: "Fit" else "Fit"
+        selectedAspectRatio = when (aspectModeName) {
+            "16:9" -> 16f/9f; "4:3" -> 4f/3f; "18:9" -> 2f; "19.5:9" -> 19.5f/9f
+            "20:9" -> 20f/9f; "21:9" -> 21f/9f; "1.85:1" -> 1.85f; "2.21:1" -> 2.21f
+            "2.35:1" -> 2.35f; "2.39:1" -> 2.39f; else -> null
+        }
+        customWidthPercent = videoSettings.getInt("aspect_custom_width", 100).coerceIn(50, 200)
+        customHeightPercent = videoSettings.getInt("aspect_custom_height", 100).coerceIn(50, 200)
         playerView = PlayerView(this).apply {
-            resizeMode = resizeModes[resizeModeIndex]
+            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
             useController = false
             setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
             setShowRewindButton(false)
@@ -280,6 +495,7 @@ class PlayerActivity : AppCompatActivity() {
         }
         playbackArea = FrameLayout(this)
         playbackArea.addView(playerView, FrameLayout.LayoutParams(-1, -1))
+        playbackArea.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> applyAspectMode() }
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: MotionEvent): Boolean = true
 
@@ -372,13 +588,7 @@ class PlayerActivity : AppCompatActivity() {
             text = "FIT"; textSize = 13f; typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER; setTextColor(android.graphics.Color.WHITE)
             contentDescription = "Change video aspect ratio"
-            setOnClickListener {
-                resizeModeIndex = (resizeModeIndex + 1) % resizeModes.size
-                applyAspectMode()
-                if (getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getBoolean("remember_aspect", true))
-                    getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).edit().putInt("last_aspect", resizeModeIndex).apply()
-                text = resizeLabels[resizeModeIndex]
-            }
+            setOnClickListener { showAspectRatioMenu() }
         }, LinearLayout.LayoutParams(dpPlayer(42), dpPlayer(42)))
         landscapeHeader.addView(landscapeActions)
         playbackArea.addView(landscapeHeader, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
@@ -625,10 +835,10 @@ class PlayerActivity : AppCompatActivity() {
                 }
                 override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
                     val mode = getSharedPreferences("gleeshplayer_settings", MODE_PRIVATE).getInt("playback_end_behavior", 0)
-                    if (mode == 2 && reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION) finish()
+                    if (mode == 2 && reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION) finishToLibrary()
                 }
                 override fun onPlaybackStateChanged(playbackState: Int) {
-                    if (playbackState == Player.STATE_ENDED) finish()
+                    if (playbackState == Player.STATE_ENDED) finishToLibrary()
                 }
             })
             it.setMediaItems(playlistUris.map { itemUri -> mediaItemFor(itemUri) }, playlistIndex, resumePosition)
@@ -1429,6 +1639,20 @@ class PlayerActivity : AppCompatActivity() {
     private fun scheduleControlsHide() {
         controlsHandler.removeCallbacks(hideControlsRunnable)
         if (isLandscapeNow()) controlsHandler.postDelayed(hideControlsRunnable, 5000L)
+    }
+
+    private fun finishToLibrary() {
+        val returnIntent = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            putExtra("restore_library_context", true)
+            putExtra("return_folder", intent.getStringExtra("return_folder"))
+            putExtra("return_tab", intent.getIntExtra("return_tab", 0))
+            putExtra("return_search_page", intent.getBooleanExtra("return_search_page", false))
+            putExtra("return_search_query", intent.getStringExtra("return_search_query") ?: "")
+            putExtra("return_scroll_y", intent.getIntExtra("return_scroll_y", 0))
+        }
+        startActivity(returnIntent)
+        finish()
     }
 
     private fun showEndBehaviorOptions() {
