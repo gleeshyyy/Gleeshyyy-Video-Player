@@ -1027,6 +1027,17 @@ object LanguageManager {
         "ta" to mapOf("SAVE" to "சேமி", "Choose your appearance" to "உங்கள் தோற்றத்தைத் தேர்ந்தெடு", "Dark" to "இருள்", "Light" to "ஒளி", "Auto" to "தானாக", "Picture" to "படம்", "PREVIEW" to "முன்னோட்டம்", "Your videos      ⚙" to "உங்கள் வீடியோக்கள்      ⚙", "Recently played" to "சமீபத்தில் இயக்கப்பட்டவை", "Folders" to "கோப்புறைகள்", "CHANGE BACKGROUND PICTURE" to "பின்னணி படத்தை மாற்று", "Transparency" to "ஒளிபுகுமை", "Blur" to "மங்கல்", "Choose a picture to see it here." to "இங்கே பார்க்க ஒரு படத்தைத் தேர்ந்தெடு.", "Image colours will guide the app's accent and dark/light surfaces." to "படத்தின் நிறங்கள் செயலியின் சிறப்பு நிறத்தையும் ஒளி/இருள் தோற்றத்தையும் தீர்மானிக்கும்.")
     )
 
+    private val playerWords: Map<String, Map<String, String>> = mapOf(
+        "fr" to mapOf("Fit" to "Ajuster", "Fill" to "Remplir", "Original" to "Original", "Stretch" to "Étirer", "Position" to "Position", "Size" to "Taille", "unsupported" to "non pris en charge"),
+        "es" to mapOf("Fit" to "Ajustar", "Fill" to "Rellenar", "Original" to "Original", "Stretch" to "Estirar", "Position" to "Posición", "Size" to "Tamaño", "unsupported" to "no compatible"),
+        "sw" to mapOf("Fit" to "Toshea", "Fill" to "Jaza", "Original" to "Asili", "Stretch" to "Nyoosha", "Position" to "Nafasi", "Size" to "Ukubwa", "unsupported" to "haitumiki"),
+        "ru" to mapOf("Fit" to "По размеру", "Fill" to "Заполнить", "Original" to "Исходный", "Stretch" to "Растянуть", "Position" to "Положение", "Size" to "Размер", "unsupported" to "не поддерживается"),
+        "zh" to mapOf("Fit" to "适应", "Fill" to "填充", "Original" to "原始", "Stretch" to "拉伸", "Position" to "位置", "Size" to "大小", "unsupported" to "不支持"),
+        "hi" to mapOf("Fit" to "फ़िट", "Fill" to "भरें", "Original" to "मूल", "Stretch" to "खींचें", "Position" to "स्थिति", "Size" to "आकार", "unsupported" to "असमर्थित"),
+        "te" to mapOf("Fit" to "సరిపడు", "Fill" to "నింపు", "Original" to "అసలు", "Stretch" to "సాగదీయి", "Position" to "స్థానం", "Size" to "పరిమాణం", "unsupported" to "మద్దతు లేదు"),
+        "ta" to mapOf("Fit" to "பொருத்து", "Fill" to "நிரப்பு", "Original" to "அசல்", "Stretch" to "நீட்டு", "Position" to "இடம்", "Size" to "அளவு", "unsupported" to "ஆதரிக்கப்படவில்லை")
+    )
+
     fun currentTag(): String =
         AppCompatDelegate.getApplicationLocales().toLanguageTags().ifBlank { "en" }
 
@@ -1037,8 +1048,17 @@ object LanguageManager {
         propertyWords[language]?.get(source)?.let { return it }
         subtitleWords[language]?.get(source)?.let { return it }
         themeWords[language]?.get(source)?.let { return it }
+        playerWords[language]?.get(source)?.let { return it }
         val dynamic = dynamicWords[language] ?: emptyMap()
 
+        if (source.endsWith(" This cannot be undone.")) {
+            val prefix = source.removeSuffix(" This cannot be undone.")
+            return translate(context, prefix) + " " + (dictionary["This cannot be undone."] ?: "This cannot be undone.")
+        }
+        val size = Regex("^Size: (.+) sp$").matchEntire(source)
+        if (size != null) return (playerWords[language]?.get("Size") ?: "Size") + ": " + size.groupValues[1] + " sp"
+        val position = Regex("^Position: (.+)%$").matchEntire(source)
+        if (position != null) return (playerWords[language]?.get("Position") ?: "Position") + ": " + position.groupValues[1] + "%"
         val subtitleNumber = Regex("^Subtitle (\\d+)$").matchEntire(source)
         if (subtitleNumber != null) return (subtitleWords[language]?.get("Subtitle") ?: "Subtitle") + " " + subtitleNumber.groupValues[1]
         val videoCount = Regex("^(\\d+) videos$").matchEntire(source)
