@@ -83,6 +83,9 @@ class MainActivity : AppCompatActivity() {
     private var selectionScopeVideos: List<VideoItem> = emptyList()
     private val deletePermissionRequest = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
+            selectionMode = false
+            selectedVideoUris.clear()
+            selectionScopeVideos = emptyList()
             android.widget.Toast.makeText(this, "Deleted", android.widget.Toast.LENGTH_SHORT).show()
         }
         loadLibrary()
@@ -681,7 +684,7 @@ class MainActivity : AppCompatActivity() {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(dp(11), dp(9), dp(8), dp(9))
-                    setBackgroundColor(if (selectionMode && videos.all { it.uri.toString() in selectedVideoUris }) selectionHighlight() else panelBackground())
+                    setBackgroundColor(if (selectionMode && videos.any { it.uri.toString() in selectedVideoUris }) selectionHighlight() else panelBackground())
                     setOnClickListener { if (selectionMode) toggleFolderSelection(path, videos) else { selectedFolder = path; renderHome() } }
                     setOnLongClickListener {
                         if (!selectionMode) { selectionScopeVideos = allVideos.distinctBy { it.uri }; selectionMode = true }
@@ -863,6 +866,9 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     try {
                         uris.forEach { contentResolver.delete(it, null, null) }
+                        selectionMode = false
+                        selectedVideoUris.clear()
+                        selectionScopeVideos = emptyList()
                         android.widget.Toast.makeText(this, "Deleted", android.widget.Toast.LENGTH_SHORT).show()
                         loadLibrary()
                     } catch (_: Exception) {
