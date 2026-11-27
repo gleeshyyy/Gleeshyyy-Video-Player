@@ -182,7 +182,7 @@ class SettingsActivity : AppCompatActivity() {
         val language = settingRow("Language", languageNames[currentIndex] + "  ›").apply {
             setOnClickListener {
                 androidx.appcompat.app.AlertDialog.Builder(this@SettingsActivity)
-                    .setTitle("Choose language")
+                    .setTitle(LanguageManager.translate(this@SettingsActivity, "Choose language"))
                     .setSingleChoiceItems(languageNames.toTypedArray(), currentIndex) { dialog, which ->
                         val tag = languageTags[which]
                         prefs.edit().putString("app_language", tag).apply()
@@ -302,7 +302,7 @@ class SettingsActivity : AppCompatActivity() {
                         d.dismiss()
                         showVideo()
                     }
-                    .setNegativeButton("Cancel", null)
+                    .setNegativeButton(LanguageManager.translate(this@SettingsActivity, "Cancel"), null)
                     .create()
                 dialog.setOnShowListener {
                     dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(panelBackground()))
