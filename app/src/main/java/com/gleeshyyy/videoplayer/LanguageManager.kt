@@ -1050,14 +1050,14 @@ object LanguageManager {
     )
 
     private val gestureWords: Map<String, Map<String, String>> = mapOf(
-        "fr" to mapOf("SEEK" to "RECHERCHE", "BRIGHTNESS" to "LUMINOSITÉ", "VOLUME" to "VOLUME", "playing…" to "lecture…"),
-        "es" to mapOf("SEEK" to "BUSCAR", "BRIGHTNESS" to "BRILLO", "VOLUME" to "VOLUMEN", "playing…" to "reproduciendo…"),
-        "sw" to mapOf("SEEK" to "TAFUTA", "BRIGHTNESS" to "MWANGA", "VOLUME" to "SAUTI", "playing…" to "inacheza…"),
-        "ru" to mapOf("SEEK" to "ПОИСК", "BRIGHTNESS" to "ЯРКОСТЬ", "VOLUME" to "ГРОМКОСТЬ", "playing…" to "воспроизведение…"),
-        "zh" to mapOf("SEEK" to "定位", "BRIGHTNESS" to "亮度", "VOLUME" to "音量", "playing…" to "播放中…"),
-        "hi" to mapOf("SEEK" to "खोज", "BRIGHTNESS" to "चमक", "VOLUME" to "आवाज़", "playing…" to "चल रहा है…"),
-        "te" to mapOf("SEEK" to "వెతుకు", "BRIGHTNESS" to "ప్రకాశం", "VOLUME" to "వాల్యూమ్", "playing…" to "ప్లే అవుతోంది…"),
-        "ta" to mapOf("SEEK" to "தேடல்", "BRIGHTNESS" to "ஒளிர்வு", "VOLUME" to "ஒலி", "playing…" to "இயங்குகிறது…")
+        "fr" to mapOf("SEEK" to "RECHERCHE", "BRIGHTNESS" to "LUMINOSITÉ", "VOLUME" to "VOLUME", "playing…" to "lecture…", "VIDEO PLAYER" to "LECTEUR VIDÉO"),
+        "es" to mapOf("SEEK" to "BUSCAR", "BRIGHTNESS" to "BRILLO", "VOLUME" to "VOLUMEN", "playing…" to "reproduciendo…", "VIDEO PLAYER" to "REPRODUCTOR DE VÍDEO"),
+        "sw" to mapOf("SEEK" to "TAFUTA", "BRIGHTNESS" to "MWANGA", "VOLUME" to "SAUTI", "playing…" to "inacheza…", "VIDEO PLAYER" to "KICHEZA VIDEO"),
+        "ru" to mapOf("SEEK" to "ПОИСК", "BRIGHTNESS" to "ЯРКОСТЬ", "VOLUME" to "ГРОМКОСТЬ", "playing…" to "воспроизведение…", "VIDEO PLAYER" to "ВИДЕОПЛЕЕР"),
+        "zh" to mapOf("SEEK" to "定位", "BRIGHTNESS" to "亮度", "VOLUME" to "音量", "playing…" to "播放中…", "VIDEO PLAYER" to "视频播放器"),
+        "hi" to mapOf("SEEK" to "खोज", "BRIGHTNESS" to "चमक", "VOLUME" to "आवाज़", "playing…" to "चल रहा है…", "VIDEO PLAYER" to "वीडियो प्लेयर"),
+        "te" to mapOf("SEEK" to "వెతుకు", "BRIGHTNESS" to "ప్రకాశం", "VOLUME" to "వాల్యూమ్", "playing…" to "ప్లే అవుతోంది…", "VIDEO PLAYER" to "వీడియో ప్లేయర్"),
+        "ta" to mapOf("SEEK" to "தேடல்", "BRIGHTNESS" to "ஒளிர்வு", "VOLUME" to "ஒலி", "playing…" to "இயங்குகிறது…", "VIDEO PLAYER" to "வீடியோ பிளேயர்")
     )
 
     fun currentTag(): String =
