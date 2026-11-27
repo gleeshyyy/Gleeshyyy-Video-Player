@@ -387,7 +387,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun label(value: String, size: Float, color: Int, bold: Boolean = false) =
         TextView(this).apply {
-            text = value
+            text = LanguageManager.translate(this@SettingsActivity, value)
             textSize = size
             setTextColor(color)
             if (bold) setTypeface(typeface, android.graphics.Typeface.BOLD)
