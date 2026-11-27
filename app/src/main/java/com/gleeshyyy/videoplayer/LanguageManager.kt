@@ -1021,7 +1021,7 @@ object LanguageManager {
         val deleteSelected = Regex("^Delete (\\d+) selected videos\\?$").matchEntire(source)
         if (deleteSelected != null) return (dictionary["Delete"] ?: "Delete") + " " + deleteSelected.groupValues[1] + " " + (dynamic["selected"] ?: "selected") + " " + (dynamic["videos"] ?: "videos") + "?"
         val searchEmpty = Regex("^No videos match “(.+)”\\.$").matchEntire(source)
-        if (searchEmpty != null) return (dictionary["No matching videos found."] ?: "No matching videos found.") + " “" + searchEmpty.groupValues[1] + "”.
+        if (searchEmpty != null) return (dictionary["No matching videos found."] ?: "No matching videos found.") + " “" + searchEmpty.groupValues[1] + "”."
         return source
     }
 
