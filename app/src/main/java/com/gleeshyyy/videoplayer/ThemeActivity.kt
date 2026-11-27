@@ -54,11 +54,11 @@ class ThemeActivity : AppCompatActivity() {
         setContentView(scroll)
         val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         header.addView(TextView(this).apply {
-            text = "‹   Theme"; textSize = 23f; setTextColor(fg); setTypeface(typeface, android.graphics.Typeface.BOLD)
+            text = "‹   " + LanguageManager.translate(this@ThemeActivity, "Theme"); textSize = 23f; setTextColor(fg); setTypeface(typeface, android.graphics.Typeface.BOLD)
             setOnClickListener { finish() }
         }, LinearLayout.LayoutParams(0, dp(52), 1f))
         header.addView(TextView(this).apply {
-            text = "SAVE"; textSize = 14f; setTextColor(Color.rgb(32,214,107)); setTypeface(typeface, android.graphics.Typeface.BOLD)
+            text = LanguageManager.translate(this@ThemeActivity, "SAVE"); textSize = 14f; setTextColor(Color.rgb(32,214,107)); setTypeface(typeface, android.graphics.Typeface.BOLD)
             setPadding(dp(12), dp(12), 0, dp(12))
             setOnClickListener {
                 val finalMode = if (mode == "picture" && picture.isNullOrBlank()) "dark" else mode
@@ -75,7 +75,7 @@ class ThemeActivity : AppCompatActivity() {
         choices.forEach { (value, name) ->
             val selected = mode == value
             page.addView(TextView(this).apply {
-                text = (if (selected) "✓   " else "") + name
+                text = (if (selected) "✓   " else "") + LanguageManager.translate(this@ThemeActivity, name)
                 textSize = 15f; setTextColor(if (selected) Color.rgb(32,214,107) else fg)
                 setPadding(dp(14), dp(13), dp(14), dp(13)); setBackgroundColor(if (selected) if (dark) Color.rgb(37,53,61) else Color.rgb(224,239,230) else surface)
                 setOnClickListener { mode = value; render() }
@@ -106,7 +106,7 @@ class ThemeActivity : AppCompatActivity() {
         page.addView(frame, LinearLayout.LayoutParams(-1, dp(235)))
         if (mode == "picture") {
             page.addView(TextView(this).apply {
-                text = "CHANGE BACKGROUND PICTURE"; textSize = 13f; setTextColor(Color.rgb(32,214,107)); setTypeface(typeface, android.graphics.Typeface.BOLD)
+                text = LanguageManager.translate(this@ThemeActivity, "CHANGE BACKGROUND PICTURE"); textSize = 13f; setTextColor(Color.rgb(32,214,107)); setTypeface(typeface, android.graphics.Typeface.BOLD)
                 setPadding(0, dp(17), 0, dp(10)); setOnClickListener { picker.launch(arrayOf("image/*")) }
             })
             page.addView(text("Transparency", 14f, fg, true).apply { setPadding(0, dp(5), 0, 0) })
@@ -130,7 +130,7 @@ class ThemeActivity : AppCompatActivity() {
         })
     }
     private fun text(value:String,size:Float,color:Int,bold:Boolean=false)=TextView(this).apply {
-        text=value; textSize=size; setTextColor(color); if(bold) setTypeface(typeface,android.graphics.Typeface.BOLD)
+        text=LanguageManager.translate(this@ThemeActivity, value); textSize=size; setTextColor(color); if(bold) setTypeface(typeface,android.graphics.Typeface.BOLD)
     }
     private fun muted(dark:Boolean)=if(dark) Color.rgb(153,166,175) else Color.rgb(91,103,112)
     private fun dp(v:Int)=(v*resources.displayMetrics.density).toInt()
