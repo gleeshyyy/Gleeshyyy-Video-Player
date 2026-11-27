@@ -1049,6 +1049,17 @@ object LanguageManager {
         "ta" to mapOf("ALL FOLDERS" to "அனைத்து கோப்புறைகள்", "Updating video library…" to "வீடியோ நூலகம் புதுப்பிக்கப்படுகிறது…", "No video folders found on this device." to "இந்த சாதனத்தில் வீடியோ கோப்புறைகள் எதுவும் இல்லை.", "Allow video access on the home screen to manage scanned folders." to "ஸ்கேன் செய்யப்பட்ட கோப்புறைகளை நிர்வகிக்க முகப்புத் திரையில் வீடியோ அணுகலை அனுமதிக்கவும்.", "Internal storage" to "உள் சேமிப்பு", "Unknown" to "தெரியவில்லை")
     )
 
+    private val gestureWords: Map<String, Map<String, String>> = mapOf(
+        "fr" to mapOf("SEEK" to "RECHERCHE", "BRIGHTNESS" to "LUMINOSITÉ", "VOLUME" to "VOLUME", "playing…" to "lecture…"),
+        "es" to mapOf("SEEK" to "BUSCAR", "BRIGHTNESS" to "BRILLO", "VOLUME" to "VOLUMEN", "playing…" to "reproduciendo…"),
+        "sw" to mapOf("SEEK" to "TAFUTA", "BRIGHTNESS" to "MWANGA", "VOLUME" to "SAUTI", "playing…" to "inacheza…"),
+        "ru" to mapOf("SEEK" to "ПОИСК", "BRIGHTNESS" to "ЯРКОСТЬ", "VOLUME" to "ГРОМКОСТЬ", "playing…" to "воспроизведение…"),
+        "zh" to mapOf("SEEK" to "定位", "BRIGHTNESS" to "亮度", "VOLUME" to "音量", "playing…" to "播放中…"),
+        "hi" to mapOf("SEEK" to "खोज", "BRIGHTNESS" to "चमक", "VOLUME" to "आवाज़", "playing…" to "चल रहा है…"),
+        "te" to mapOf("SEEK" to "వెతుకు", "BRIGHTNESS" to "ప్రకాశం", "VOLUME" to "వాల్యూమ్", "playing…" to "ప్లే అవుతోంది…"),
+        "ta" to mapOf("SEEK" to "தேடல்", "BRIGHTNESS" to "ஒளிர்வு", "VOLUME" to "ஒலி", "playing…" to "இயங்குகிறது…")
+    )
+
     fun currentTag(): String =
         AppCompatDelegate.getApplicationLocales().toLanguageTags().ifBlank { "en" }
 
@@ -1061,6 +1072,7 @@ object LanguageManager {
         themeWords[language]?.get(source)?.let { return it }
         playerWords[language]?.get(source)?.let { return it }
         libraryWords[language]?.get(source)?.let { return it }
+        gestureWords[language]?.get(source)?.let { return it }
         val dynamic = dynamicWords[language] ?: emptyMap()
 
         if (source.endsWith(" This cannot be undone.")) {
