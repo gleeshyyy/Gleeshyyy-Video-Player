@@ -1060,6 +1060,17 @@ object LanguageManager {
         "ta" to mapOf("SEEK" to "தேடல்", "BRIGHTNESS" to "ஒளிர்வு", "VOLUME" to "ஒலி", "playing…" to "இயங்குகிறது…", "VIDEO PLAYER" to "வீடியோ பிளேயர்")
     )
 
+    private val sectionWords: Map<String, Map<String, String>> = mapOf(
+        "fr" to mapOf("GENERAL" to "GÉNÉRAL", "LANGUAGE" to "LANGUE", "HISTORY" to "HISTORIQUE", "ABOUT" to "À PROPOS", "PLAYBACK" to "LECTURE", "REMEMBER SUBTITLES" to "MÉMORISER LES SOUS-TITRES", "Choose which folders appear in your video library. Disabled folders are excluded from GleeshPlayer scan." to "Choisissez les dossiers qui apparaissent dans votre bibliothèque vidéo. Les dossiers désactivés sont exclus de l’analyse de GleeshPlayer."),
+        "es" to mapOf("GENERAL" to "GENERAL", "LANGUAGE" to "IDIOMA", "HISTORY" to "HISTORIAL", "ABOUT" to "ACERCA DE", "PLAYBACK" to "REPRODUCCIÓN", "REMEMBER SUBTITLES" to "RECORDAR SUBTÍTULOS", "Choose which folders appear in your video library. Disabled folders are excluded from GleeshPlayer scan." to "Elige qué carpetas aparecen en tu biblioteca de vídeos. Las carpetas desactivadas se excluyen del análisis de GleeshPlayer."),
+        "sw" to mapOf("GENERAL" to "JUMLA", "LANGUAGE" to "LUGHA", "HISTORY" to "HISTORIA", "ABOUT" to "KUHUSU", "PLAYBACK" to "UCHEZAJI", "REMEMBER SUBTITLES" to "KUMBUKA MANUKUU", "Choose which folders appear in your video library. Disabled folders are excluded from GleeshPlayer scan." to "Chagua folda zinazoonekana kwenye maktaba ya video. Folda zilizozimwa hazitachanganuliwa na GleeshPlayer."),
+        "ru" to mapOf("GENERAL" to "ОБЩИЕ", "LANGUAGE" to "ЯЗЫК", "HISTORY" to "ИСТОРИЯ", "ABOUT" to "О ПРИЛОЖЕНИИ", "PLAYBACK" to "ВОСПРОИЗВЕДЕНИЕ", "REMEMBER SUBTITLES" to "ЗАПОМИНАТЬ СУБТИТРЫ", "Choose which folders appear in your video library. Disabled folders are excluded from GleeshPlayer scan." to "Выберите папки, отображаемые в библиотеке видео. Отключённые папки не сканируются GleeshPlayer."),
+        "zh" to mapOf("GENERAL" to "常规", "LANGUAGE" to "语言", "HISTORY" to "历史记录", "ABOUT" to "关于", "PLAYBACK" to "播放", "REMEMBER SUBTITLES" to "记住字幕", "Choose which folders appear in your video library. Disabled folders are excluded from GleeshPlayer scan." to "选择显示在视频库中的文件夹。已禁用的文件夹不会被 GleeshPlayer 扫描。"),
+        "hi" to mapOf("GENERAL" to "सामान्य", "LANGUAGE" to "भाषा", "HISTORY" to "इतिहास", "ABOUT" to "ऐप के बारे में", "PLAYBACK" to "प्लेबैक", "REMEMBER SUBTITLES" to "उपशीर्षक याद रखें", "Choose which folders appear in your video library. Disabled folders are excluded from GleeshPlayer scan." to "चुनें कि आपकी वीडियो लाइब्रेरी में कौन से फ़ोल्डर दिखें। बंद फ़ोल्डर GleeshPlayer स्कैन से बाहर रहेंगे।"),
+        "te" to mapOf("GENERAL" to "సాధారణం", "LANGUAGE" to "భాష", "HISTORY" to "చరిత్ర", "ABOUT" to "గురించి", "PLAYBACK" to "ప్లేబ్యాక్", "REMEMBER SUBTITLES" to "ఉపశీర్షికలను గుర్తుంచుకో", "Choose which folders appear in your video library. Disabled folders are excluded from GleeshPlayer scan." to "మీ వీడియో లైబ్రరీలో ఏ ఫోల్డర్లు కనిపించాలో ఎంచుకోండి. నిలిపివేసిన ఫోల్డర్లు GleeshPlayer స్కాన్‌లో ఉండవు."),
+        "ta" to mapOf("GENERAL" to "பொது", "LANGUAGE" to "மொழி", "HISTORY" to "வரலாறு", "ABOUT" to "பற்றி", "PLAYBACK" to "இயக்கம்", "REMEMBER SUBTITLES" to "வசனங்களை நினைவில் கொள்", "Choose which folders appear in your video library. Disabled folders are excluded from GleeshPlayer scan." to "உங்கள் வீடியோ நூலகத்தில் எந்த கோப்புறைகள் தோன்ற வேண்டும் என்பதைத் தேர்ந்தெடு. முடக்கப்பட்ட கோப்புறைகள் GleeshPlayer ஸ்கேனில் சேர்க்கப்படாது.")
+    )
+
     fun currentTag(): String =
         AppCompatDelegate.getApplicationLocales().toLanguageTags().ifBlank { "en" }
 
@@ -1073,6 +1084,7 @@ object LanguageManager {
         playerWords[language]?.get(source)?.let { return it }
         libraryWords[language]?.get(source)?.let { return it }
         gestureWords[language]?.get(source)?.let { return it }
+        sectionWords[language]?.get(source)?.let { return it }
         val dynamic = dynamicWords[language] ?: emptyMap()
 
         if (source.endsWith(" This cannot be undone.")) {
