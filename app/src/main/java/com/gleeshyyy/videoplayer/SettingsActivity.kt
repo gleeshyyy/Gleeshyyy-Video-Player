@@ -219,12 +219,25 @@ class SettingsActivity : AppCompatActivity() {
         body.addView(settingRow("Version", "GleeshPlayer v" + BuildConfig.VERSION_NAME))
         body.addView(settingRow("Developer", "Muhirwa Elyse"))
         body.addView(settingRow("Assistant Developer", "Lil Ty"))
-        val instagramRow = settingRow("Instagram", "◎  @blocioooo").apply {
+        val instagramRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(15), dp(13), dp(15), dp(13))
+            setBackgroundColor(panelBackground())
+            isClickable = true
+            isFocusable = true
             setOnClickListener {
                 val profile = android.net.Uri.parse("https://www.instagram.com/blocioooo")
                 startActivity(Intent(Intent.ACTION_VIEW, profile))
             }
         }
+        instagramRow.addView(android.widget.ImageView(this).apply {
+            setImageResource(R.drawable.ic_instagram)
+            imageTintList = ColorStateList.valueOf(palette.text)
+        }, LinearLayout.LayoutParams(dp(22), dp(22)))
+        instagramRow.addView(label("@blocioooo", 14f, palette.text, true).apply {
+            setPadding(dp(12), 0, 0, 0)
+        })
         body.addView(instagramRow)
     }
 
