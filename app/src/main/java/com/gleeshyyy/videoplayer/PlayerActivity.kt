@@ -1070,7 +1070,7 @@ class PlayerActivity : AppCompatActivity() {
         val language = format.language?.takeIf { it.isNotBlank() && it != "und" }
             ?.let { java.util.Locale.forLanguageTag(it).getDisplayLanguage(java.util.Locale.getDefault()) }
             ?.takeIf { it.isNotBlank() }
-        return label ?: language ?: "Subtitle \${index + 1}"
+        return label ?: language ?: "Subtitle ${index + 1}"
     }
 
     private fun showEmbeddedSubtitleTracks() {
@@ -1084,7 +1084,7 @@ class PlayerActivity : AppCompatActivity() {
                 val format = group.getTrackFormat(index)
                 val isSupported = group.isTrackSupported(index)
                 val label = subtitleTrackLabel(format, index)
-                choices.add(if (isSupported) label else "\${label} (unsupported)")
+                choices.add(if (isSupported) label else "${label} (unsupported)")
                 selections.add(group.mediaTrackGroup to index)
                 supported.add(isSupported)
             }
@@ -1336,7 +1336,7 @@ class PlayerActivity : AppCompatActivity() {
                     (format.label == externalSubtitleName || format.sampleMimeType == MimeTypes.APPLICATION_SUBRIP)
                 val baseLabel = if (isExternal) externalSubtitleName ?: "External subtitle"
                     else subtitleTrackLabel(format, index)
-                choices.add(if (isSupported) baseLabel else "\${baseLabel} (unsupported)")
+                choices.add(if (isSupported) baseLabel else "${baseLabel} (unsupported)")
                 selections.add(group.mediaTrackGroup to index)
                 supported.add(isSupported)
                 if (group.isTrackSelected(index)) selectedChoice = choices.lastIndex
