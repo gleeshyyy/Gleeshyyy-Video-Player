@@ -660,11 +660,13 @@ class PlayerActivity : AppCompatActivity() {
             override fun onDown(e: MotionEvent): Boolean = true
 
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                if (isLandscapeNow()) {
-                    val show = bottomControls.visibility != View.VISIBLE || landscapeHeader.visibility != View.VISIBLE
-                    setPlayerControlsVisible(show)
-                    if (show) scheduleControlsHide() else controlsHandler.removeCallbacks(hideControlsRunnable)
+                val show = if (isLandscapeNow()) {
+                    bottomControls.visibility != View.VISIBLE || landscapeHeader.visibility != View.VISIBLE
+                } else {
+                    bottomControls.visibility != View.VISIBLE || playerHeader.visibility != View.VISIBLE
                 }
+                setPlayerControlsVisible(show)
+                if (show) scheduleControlsHide() else controlsHandler.removeCallbacks(hideControlsRunnable)
                 return true
             }
 
@@ -1855,6 +1857,19 @@ class PlayerActivity : AppCompatActivity() {
             rawY <= areaLocation[1] + playbackArea.height
         if (!insidePlaybackArea) return false
 
+        fun insideView(view: View): Boolean {
+            if (view.visibility != View.VISIBLE || view.width <= 0 || view.height <= 0) return false
+            val location = IntArray(2)
+            view.getLocationOnScreen(location)
+            return rawX >= location[0] && rawX <= location[0] + view.width &&
+                rawY >= location[1] && rawY <= location[1] + view.height
+        }
+        // Do not turn presses on controls or the draggable external caption into
+        // the outer-letterbox long-press speed gesture.
+        if (::bottomControls.isInitialized && insideView(bottomControls)) return false
+        if (::landscapeHeader.isInitialized && insideView(landscapeHeader)) return false
+        if (::captionLabel.isInitialized && insideView(captionLabel)) return false
+
         val contentFrame = playerView.findViewById<View>(androidx.media3.ui.R.id.exo_content_frame)
             ?: return false
         val frameLocation = IntArray(2)
@@ -1870,11 +1885,6 @@ class PlayerActivity : AppCompatActivity() {
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                if (!isLandscapeNow() && ::playerHeader.isInitialized &&
-                    playbackArea.findViewWithTag<View>("subtitle_settings_panel") == null) {
-                    setPlayerControlsVisible(true)
-                    scheduleControlsHide()
-                }
                 globalLongPressHandler.removeCallbacks(globalLongPressRunnable)
                 globalLongPressPending = isTouchOutsideVideoFrame(event.rawX, event.rawY)
                 globalLongPressTriggered = false
@@ -1890,6 +1900,7 @@ class PlayerActivity : AppCompatActivity() {
             }
             MotionEvent.ACTION_MOVE -> {
                 if (!isLandscapeNow() && ::playerHeader.isInitialized &&
+                    bottomControls.visibility == View.VISIBLE &&
                     playbackArea.findViewWithTag<View>("subtitle_settings_panel") == null) {
                     scheduleControlsHide()
                 }
