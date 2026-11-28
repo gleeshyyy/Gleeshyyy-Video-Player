@@ -2134,8 +2134,9 @@ class PlayerActivity : AppCompatActivity() {
                 }
                 view.animate().alpha(1f).setDuration(180L).start()
             } else {
+                val hiddenVisibility = if (!isLandscapeNow() && view === playerHeader) View.INVISIBLE else View.GONE
                 view.animate().alpha(0f).setDuration(180L).withEndAction {
-                    if (view.alpha < 0.02f) view.visibility = View.GONE
+                    if (view.alpha < 0.02f) view.visibility = hiddenVisibility
                 }.start()
             }
         }
