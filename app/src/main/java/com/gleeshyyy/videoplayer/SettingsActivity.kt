@@ -75,13 +75,43 @@ class SettingsActivity : AppCompatActivity() {
         root.addView(body)
     }
 
+    private fun currentLanguageName(): String {
+        val languageNames = listOf("English", "Français", "Español", "Kiswahili", "Русский", "中文（简体）", "हिन्दी", "తెలుగు", "தமிழ்")
+        val languageTags = listOf("en", "fr", "es", "sw", "ru", "zh-CN", "hi", "te", "ta")
+        val currentTag = AppCompatDelegate.getApplicationLocales().toLanguageTags().ifBlank {
+            prefs.getString("app_language", "en") ?: "en"
+        }
+        val index = languageTags.indexOfFirst { currentTag.startsWith(it, ignoreCase = true) }.coerceAtLeast(0)
+        return languageNames[index]
+    }
+
+    private fun showLanguage() {
+        val languageNames = listOf("English", "Français", "Español", "Kiswahili", "Русский", "中文（简体）", "हिन्दी", "తెలుగు", "தமிழ்")
+        val languageTags = listOf("en", "fr", "es", "sw", "ru", "zh-CN", "hi", "te", "ta")
+        val currentTag = AppCompatDelegate.getApplicationLocales().toLanguageTags().ifBlank {
+            prefs.getString("app_language", "en") ?: "en"
+        }
+        val currentIndex = languageTags.indexOfFirst { currentTag.startsWith(it, ignoreCase = true) }.coerceAtLeast(0)
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(LanguageManager.translate(this, "Choose language"))
+            .setSingleChoiceItems(languageNames.toTypedArray(), currentIndex) { dialog, which ->
+                val tag = languageTags[which]
+                prefs.edit().putString("app_language", tag).apply()
+                LanguageManager.apply(tag)
+                dialog.dismiss()
+            }
+            .setNegativeButton(LanguageManager.translate(this, "Cancel"), null)
+            .show()
+    }
+
     private fun showMenu() {
         beginPage("Settings")
+        addMenu("Language", currentLanguageName(), "language")
         addMenu("Manage Scan list", "Choose which folders GleeshPlayer scans", "manage")
         addMenu("Theme", "Appearance and colors", "theme")
         body.addView(label(" ", 14f, palette.muted).apply { setPadding(0, dp(12), 0, dp(12)) })
         body.addView(label("GENERAL", 12f, palette.accent, true).apply { setPadding(0, dp(8), 0, dp(10)) })
-        addMenu("General", "Language, history and app information", "general")
+        addMenu("General", "History and app information", "general")
         addMenu("Video", "Playback preferences", "video")
         addMenu("Subtitles", "Subtitle preferences", "subtitles")
     }
@@ -101,6 +131,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun showPage(page: String) {
         when (page) {
             "general" -> showGeneral()
+            "language" -> showLanguage()
             "video" -> showVideo()
             "theme" -> startActivity(Intent(this, ThemeActivity::class.java))
             "manage" -> showManageScanList()
@@ -172,28 +203,6 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun showGeneral() {
         beginPage("General", true)
-        body.addView(label("LANGUAGE", 12f, palette.accent, true).apply { setPadding(0, dp(28), 0, dp(12)) })
-        val languageNames = listOf("English", "Français", "Español", "Kiswahili", "Русский", "中文（简体）", "हिन्दी", "తెలుగు", "தமிழ்")
-        val languageTags = listOf("en", "fr", "es", "sw", "ru", "zh-CN", "hi", "te", "ta")
-        val currentTag = AppCompatDelegate.getApplicationLocales().toLanguageTags().ifBlank {
-            prefs.getString("app_language", "en") ?: "en"
-        }
-        val currentIndex = languageTags.indexOfFirst { currentTag.startsWith(it, ignoreCase = true) }.coerceAtLeast(0)
-        val language = settingRow("Language", languageNames[currentIndex] + "  ›").apply {
-            setOnClickListener {
-                androidx.appcompat.app.AlertDialog.Builder(this@SettingsActivity)
-                    .setTitle(LanguageManager.translate(this@SettingsActivity, "Choose language"))
-                    .setSingleChoiceItems(languageNames.toTypedArray(), currentIndex) { dialog, which ->
-                        val tag = languageTags[which]
-                        prefs.edit().putString("app_language", tag).apply()
-                        LanguageManager.apply(tag)
-                        dialog.dismiss()
-                    }
-                    .setNegativeButton(LanguageManager.translate(this@SettingsActivity, "Cancel"), null)
-                    .show()
-            }
-        }
-        body.addView(language)
         body.addView(label("HISTORY", 12f, palette.accent, true).apply { setPadding(0, dp(28), 0, dp(12)) })
         val historyRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
