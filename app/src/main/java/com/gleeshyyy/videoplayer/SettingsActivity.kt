@@ -225,7 +225,7 @@ class SettingsActivity : AppCompatActivity() {
         historyRow.addView(toggle)
         body.addView(historyRow)
         body.addView(label("ABOUT", 12f, palette.accent, true).apply { setPadding(0, dp(28), 0, dp(12)) })
-        body.addView(settingRow("Version", "GleeshPlayer v1.2"))
+        body.addView(settingRow("Version", "GleeshPlayer v1.3"))
         body.addView(settingRow("Developer", "Muhirwa Elyse"))
         body.addView(settingRow("Assistant Developer", "Lil Ty"))
         val instagramRow = LinearLayout(this).apply {
