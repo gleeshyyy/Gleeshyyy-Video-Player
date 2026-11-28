@@ -689,6 +689,8 @@ class PlayerActivity : AppCompatActivity() {
         })
         gestureLayer = View(this).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            isClickable = true
+            isFocusable = false
             setOnTouchListener { _, event ->
                 handleExternalSubtitleDrag(event) || handlePlaybackGesture(event)
             }
@@ -2148,9 +2150,20 @@ class PlayerActivity : AppCompatActivity() {
                 val hiddenVisibility = if (!isLandscapeNow() && view === playerHeader) View.INVISIBLE else View.GONE
                 view.animate().alpha(0f).setDuration(180L).withEndAction {
                     if (view.alpha < 0.02f) view.visibility = hiddenVisibility
+                    // Once controls are gone, put the full-area gesture surface
+                    // above the video so playback gestures remain available.
+                    if (!visible && bottomControls.visibility != View.VISIBLE) {
+                        playbackArea.bringChildToFront(gestureLayer)
+                        playbackArea.bringChildToFront(seekFeedbackOverlay)
+                    }
                 }.start()
             }
         }
+        // Keep the gesture layer active underneath visible controls; controls
+        // remain above it and retain their normal click/seek-bar behavior.
+        playbackArea.bringChildToFront(gestureLayer)
+        playbackArea.bringChildToFront(seekFeedbackOverlay)
+        if (visible) playbackArea.bringChildToFront(bottomControls)
     }
 
     private fun scheduleControlsHide() {
