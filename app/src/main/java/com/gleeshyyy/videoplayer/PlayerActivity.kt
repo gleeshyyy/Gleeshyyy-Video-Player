@@ -1304,10 +1304,10 @@ class PlayerActivity : AppCompatActivity() {
                 captionLabel.getLocationOnScreen(labelLocation)
                 val hitSlop = dpPlayer(10)
                 val insideSubtitleLabel =
-                    event.rawX >= labelLocation[0] - hitSlop &&
-                    event.rawX <= labelLocation[0] + captionLabel.width + hitSlop &&
-                    event.rawY >= labelLocation[1] - hitSlop &&
-                    event.rawY <= labelLocation[1] + captionLabel.height + hitSlop
+                    event.rawX >= (labelLocation[0] - hitSlop).toFloat() &&
+                    event.rawX <= (labelLocation[0] + captionLabel.width + hitSlop).toFloat() &&
+                    event.rawY >= (labelLocation[1] - hitSlop).toFloat() &&
+                    event.rawY <= (labelLocation[1] + captionLabel.height + hitSlop).toFloat()
                 if (!insideSubtitleLabel) return false
                 externalSubtitleDragStartY = event.rawY
                 externalSubtitleDragStartPosition = subtitlePositionPercent.toFloat()
@@ -2084,6 +2084,7 @@ class PlayerActivity : AppCompatActivity() {
             resumeBanner.visibility = View.GONE
             subtitleDock.visibility = View.GONE
             playbackArea.addView(bottomControls, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+            if (::captionLabel.isInitialized) playbackArea.bringChildToFront(captionLabel)
             bottomControls.background = android.graphics.drawable.GradientDrawable(
                 android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
                 intArrayOf(0x00000000, 0x99000000.toInt())
@@ -2113,6 +2114,7 @@ class PlayerActivity : AppCompatActivity() {
             for (i in 0 until controlsBar.childCount) (controlsBar.getChildAt(i) as? TextView)?.setTextColor(palette.text)
             endModeButton.setTextColor(palette.accent)
             playbackArea.addView(bottomControls, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+            if (::captionLabel.isInitialized) playbackArea.bringChildToFront(captionLabel)
             bottomControls.visibility = View.VISIBLE
             bottomControls.alpha = 1f
             playerHeader.visibility = View.VISIBLE
