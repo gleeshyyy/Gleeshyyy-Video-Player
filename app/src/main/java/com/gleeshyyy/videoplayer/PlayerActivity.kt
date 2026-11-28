@@ -1835,12 +1835,25 @@ class PlayerActivity : AppCompatActivity() {
         showGestureFeedback("${longPressSpeed.toInt()}× " + LanguageManager.translate(this@PlayerActivity, "playing…"), 100, true)
     }
 
-    private fun isTouchOutsidePlaybackArea(rawX: Float, rawY: Float): Boolean {
-        if (!::playbackArea.isInitialized) return false
-        val location = IntArray(2)
-        playbackArea.getLocationOnScreen(location)
-        return rawX < location[0] || rawX > location[0] + playbackArea.width ||
-            rawY < location[1] || rawY > location[1] + playbackArea.height
+    private fun isTouchOutsideVideoFrame(rawX: Float, rawY: Float): Boolean {
+        if (!::playbackArea.isInitialized || !::playerView.isInitialized) return false
+
+        // Only treat the letterbox/pillarbox space inside the playback panel as
+        // the outer video area. Do not capture touches on the title or controls.
+        val areaLocation = IntArray(2)
+        playbackArea.getLocationOnScreen(areaLocation)
+        val insidePlaybackArea = rawX >= areaLocation[0] &&
+            rawX <= areaLocation[0] + playbackArea.width &&
+            rawY >= areaLocation[1] &&
+            rawY <= areaLocation[1] + playbackArea.height
+        if (!insidePlaybackArea) return false
+
+        val contentFrame = playerView.findViewById<View>(androidx.media3.ui.R.id.exo_content_frame)
+            ?: return false
+        val frameLocation = IntArray(2)
+        contentFrame.getLocationOnScreen(frameLocation)
+        return rawX < frameLocation[0] || rawX > frameLocation[0] + contentFrame.width ||
+            rawY < frameLocation[1] || rawY > frameLocation[1] + contentFrame.height
     }
 
     private fun superDispatchCancel(event: MotionEvent) {
@@ -1857,7 +1870,7 @@ class PlayerActivity : AppCompatActivity() {
                     scheduleControlsHide()
                 }
                 globalLongPressHandler.removeCallbacks(globalLongPressRunnable)
-                globalLongPressPending = isTouchOutsidePlaybackArea(event.rawX, event.rawY)
+                globalLongPressPending = isTouchOutsideVideoFrame(event.rawX, event.rawY)
                 globalLongPressTriggered = false
                 if (globalLongPressPending) {
                     globalLongPressDownTime = event.downTime
