@@ -135,15 +135,7 @@ class PlayerActivity : AppCompatActivity() {
     private val controlsHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val hideControlsRunnable = Runnable {
         if (!::bottomControls.isInitialized) return@Runnable
-        if (isLandscapeNow()) {
-            // Keep the existing landscape behavior unchanged.
-            bottomControls.visibility = View.GONE
-            landscapeHeader.visibility = View.GONE
-        } else {
-            // Hide title, CC, ratio, rotate and playback controls in portrait.
-            bottomControls.visibility = View.GONE
-            playerHeader.visibility = View.GONE
-        }
+        setPlayerControlsVisible(false)
     }
     private var videoIsLandscape = false
     private var videoKey: String = ""
@@ -670,8 +662,7 @@ class PlayerActivity : AppCompatActivity() {
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
                 if (isLandscapeNow()) {
                     val show = bottomControls.visibility != View.VISIBLE || landscapeHeader.visibility != View.VISIBLE
-                    bottomControls.visibility = if (show) View.VISIBLE else View.GONE
-                    landscapeHeader.visibility = if (show) View.VISIBLE else View.GONE
+                    setPlayerControlsVisible(show)
                     if (show) scheduleControlsHide() else controlsHandler.removeCallbacks(hideControlsRunnable)
                 }
                 return true
@@ -852,7 +843,8 @@ class PlayerActivity : AppCompatActivity() {
                 }
             }
         }
-        playbackArea.addView(captionLabel, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+        captionLabel.maxWidth = (resources.displayMetrics.widthPixels * 0.90f).toInt()
+        playbackArea.addView(captionLabel, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL))
         // Keep Media3's native subtitle renderer inside PlayerView.
         // Embedded tracks use the renderer's untouched defaults; only external SRT
         // captions receive the player's custom styling and drag interaction.
@@ -887,7 +879,7 @@ class PlayerActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(dpPlayer(18), dpPlayer(5), dpPlayer(18), dpPlayer(5))
-            setBackgroundColor(palette.surface)
+            setBackgroundColor(android.graphics.Color.TRANSPARENT)
         }
         fun controlButton(symbol: String, description: String, action: () -> Unit): TextView =
             TextView(this).apply {
@@ -970,10 +962,16 @@ class PlayerActivity : AppCompatActivity() {
             addView(timeline, LinearLayout.LayoutParams(-1, -2))
             addView(controlsBar, LinearLayout.LayoutParams(-1, -2))
         }
-        rootLayout.addView(bottomControls, LinearLayout.LayoutParams(-1, -2))
+        // Keep controls over the playback surface in both orientations so
+        // showing or hiding them never changes the video frame's measured size.
+        bottomControls.background = android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(0x00000000, 0x99000000.toInt())
+        )
         audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         gestureBrightness = currentBrightness()
         setContentView(rootLayout)
+        window.attributes = window.attributes.apply { screenBrightness = gestureBrightness }
         // SubtitleView is hosted by playbackArea, outside the resized video frame.
         playerView.subtitleView?.visibility = View.VISIBLE
         window.statusBarColor = palette.background
@@ -1300,8 +1298,17 @@ class PlayerActivity : AppCompatActivity() {
                 // The gesture layer sits above PlayerView's native SubtitleView.
                 // Capture only touches in the lower subtitle zone, leaving the rest
                 // of the screen's playback gestures unchanged.
-                val subtitleZoneTop = (1f - subtitlePositionPercent / 100f - 0.25f).coerceIn(0.62f, 0.88f)
-                if (event.y / height < subtitleZoneTop) return false
+                if (!::captionLabel.isInitialized || captionLabel.visibility != View.VISIBLE ||
+                    captionLabel.text.isNullOrBlank()) return false
+                val labelLocation = IntArray(2)
+                captionLabel.getLocationOnScreen(labelLocation)
+                val hitSlop = dpPlayer(10)
+                val insideSubtitleLabel =
+                    event.rawX >= labelLocation[0] - hitSlop &&
+                    event.rawX <= labelLocation[0] + captionLabel.width + hitSlop &&
+                    event.rawY >= labelLocation[1] - hitSlop &&
+                    event.rawY <= labelLocation[1] + captionLabel.height + hitSlop
+                if (!insideSubtitleLabel) return false
                 externalSubtitleDragStartY = event.rawY
                 externalSubtitleDragStartPosition = subtitlePositionPercent.toFloat()
                 externalSubtitleDragging = true
@@ -1865,8 +1872,7 @@ class PlayerActivity : AppCompatActivity() {
             MotionEvent.ACTION_DOWN -> {
                 if (!isLandscapeNow() && ::playerHeader.isInitialized &&
                     playbackArea.findViewWithTag<View>("subtitle_settings_panel") == null) {
-                    playerHeader.visibility = View.VISIBLE
-                    bottomControls.visibility = View.VISIBLE
+                    setPlayerControlsVisible(true)
                     scheduleControlsHide()
                 }
                 globalLongPressHandler.removeCallbacks(globalLongPressRunnable)
@@ -2078,31 +2084,58 @@ class PlayerActivity : AppCompatActivity() {
             resumeBanner.visibility = View.GONE
             subtitleDock.visibility = View.GONE
             playbackArea.addView(bottomControls, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
-            bottomControls.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            bottomControls.background = android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(0x00000000, 0x99000000.toInt())
+            )
             controlsBar.setBackgroundColor(android.graphics.Color.TRANSPARENT)
             bottomControls.findViewWithTag<View>("timeline_controls")?.setBackgroundColor(android.graphics.Color.TRANSPARENT)
             landscapeHeader.visibility = View.VISIBLE
             for (i in 0 until controlsBar.childCount) (controlsBar.getChildAt(i) as? TextView)?.setTextColor(android.graphics.Color.WHITE)
             endModeButton.setTextColor(0xFF65E58B.toInt())
             bottomControls.visibility = View.VISIBLE
+            bottomControls.alpha = 1f
             landscapeHeader.visibility = View.VISIBLE
+            landscapeHeader.alpha = 1f
             scheduleControlsHide()
         } else {
             controlsHandler.removeCallbacks(hideControlsRunnable)
-            playbackArea.removeView(bottomControls)
             landscapeHeader.visibility = View.GONE
             playerHeader.visibility = View.VISIBLE
             resumeBanner.visibility = if (resumePromptVisible) View.VISIBLE else View.GONE
             subtitleDock.visibility = View.VISIBLE
-            bottomControls.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            bottomControls.background = android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(0x00000000, 0x99000000.toInt())
+            )
             controlsBar.setBackgroundColor(android.graphics.Color.TRANSPARENT)
             bottomControls.findViewWithTag<View>("timeline_controls")?.setBackgroundColor(android.graphics.Color.TRANSPARENT)
             for (i in 0 until controlsBar.childCount) (controlsBar.getChildAt(i) as? TextView)?.setTextColor(palette.text)
             endModeButton.setTextColor(palette.accent)
-            rootLayout.addView(bottomControls, LinearLayout.LayoutParams(-1, -2))
+            playbackArea.addView(bottomControls, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
             bottomControls.visibility = View.VISIBLE
+            bottomControls.alpha = 1f
             playerHeader.visibility = View.VISIBLE
+            playerHeader.alpha = 1f
             scheduleControlsHide()
+        }
+    }
+
+    private fun setPlayerControlsVisible(visible: Boolean) {
+        val header = if (isLandscapeNow()) landscapeHeader else playerHeader
+        listOf(bottomControls, header).forEach { view ->
+            view.animate().cancel()
+            if (visible) {
+                if (view.visibility != View.VISIBLE) {
+                    view.alpha = 0f
+                    view.visibility = View.VISIBLE
+                }
+                view.animate().alpha(1f).setDuration(180L).start()
+            } else {
+                view.animate().alpha(0f).setDuration(180L).withEndAction {
+                    if (view.alpha < 0.02f) view.visibility = View.GONE
+                }.start()
+            }
         }
     }
 
