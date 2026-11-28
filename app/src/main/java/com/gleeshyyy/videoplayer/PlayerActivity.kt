@@ -2163,7 +2163,10 @@ class PlayerActivity : AppCompatActivity() {
         // remain above it and retain their normal click/seek-bar behavior.
         playbackArea.bringChildToFront(gestureLayer)
         playbackArea.bringChildToFront(seekFeedbackOverlay)
-        if (visible) playbackArea.bringChildToFront(bottomControls)
+        if (visible) {
+            playbackArea.bringChildToFront(bottomControls)
+            if (header.parent === playbackArea) playbackArea.bringChildToFront(header)
+        }
     }
 
     private fun scheduleControlsHide() {
