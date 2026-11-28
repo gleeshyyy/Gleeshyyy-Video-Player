@@ -2,7 +2,7 @@
 
 **GleeshPlayer** is a lightweight, native Android video player built with Kotlin and [AndroidX Media3](https://developer.android.com/media/media3).
 
-The app is designed around a straightforward local video library, practical playback controls, subtitle support, and a customizable viewing experience.
+The app is designed around a straightforward local video library, practical playback controls, subtitle support, and a customizable viewing experience. The v1.2 release adds language selection and further playback and interface improvements.
 
 ## Features
 
@@ -20,7 +20,8 @@ The app is designed around a straightforward local video library, practical play
 - Resume playback from the last saved position, with an option to start from the beginning.
 - Aspect-ratio options including Fit, Fill, Original, Stretch, standard ratios, cinema ratios, and custom adjustments.
 - Remember aspect-ratio preferences.
-- Playback gestures and standard playback controls.
+- Playback gestures and standard playback controls, including long-press speed control in the outer video area.
+- Remembered playback display preferences for full duration or remaining time.
 
 ### Subtitles
 - Detect and display supported embedded subtitle tracks.
@@ -28,6 +29,7 @@ The app is designed around a straightforward local video library, practical play
 - Choose available subtitle tracks from the subtitle controls.
 - Customize external subtitle appearance and position.
 - Display a subtitle indicator in the video library when subtitle availability has been detected or an external subtitle has been associated with a video.
+- Retain subtitle appearance preferences when moving between videos.
 
 Embedded subtitles use the player's native subtitle rendering. The external-subtitle customization controls are intended for external subtitles.
 
@@ -35,6 +37,8 @@ Embedded subtitles use the player's native subtitle rendering. The external-subt
 - Dark and light appearance options.
 - Picture-based theme option with transparency and blur controls.
 - Playback and library preferences.
+- Interface language selection: English, French, Spanish, Swahili, Russian, Simplified Chinese, Hindi, Telugu, and Tamil.
+- Language setting available near the top of Settings.
 
 ## Requirements
 
@@ -86,6 +90,8 @@ GleeshPlayer requests access to video media so it can display and play videos st
 
 - Repository: https://github.com/gleeshyyy/Gleeshyyy-Video-Player
 - Application ID: `com.gleeshyyy.videoplayer`
+- Current release: **v1.2**
+- Developer contact: [@blocioooo on Instagram](https://www.instagram.com/blocioooo/)
 
 ## License
 
